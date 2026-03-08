@@ -23,7 +23,7 @@ export type ProfileUser = {
         ageMax?: number;
         maxDistanceMeters?: number;
     };
-    "Hide Profile"?: boolean;
+    "hideProfile"?: boolean;
 };
 
 const UserProfilePage: React.FC = () => {
@@ -65,7 +65,7 @@ const UserProfilePage: React.FC = () => {
             .then((data) => {
                 if (cancelled || !data) return;
                 setUser(data as ProfileUser);
-                setShareLocation(!(data as ProfileUser)["Hide Profile"]);
+                setShareLocation(!(data as ProfileUser)["hideProfile"]);
             })
             .catch(() => {
                 if (!cancelled) {
@@ -92,12 +92,12 @@ const UserProfilePage: React.FC = () => {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${getToken()}`,
                 },
-                body: JSON.stringify({ "Hide Profile": newHideProfile }),
+                body: JSON.stringify({ "hideProfile": newHideProfile }),
             });
 
             if (res.ok) {
                 setShareLocation(newShareLocation);
-                setUser((prev) => (prev ? { ...prev, "Hide Profile": newHideProfile } : null));
+                setUser((prev) => (prev ? { ...prev, "hideProfile": newHideProfile } : null));
             } else {
                 setError("Failed to update location sharing");
             }

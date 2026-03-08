@@ -58,7 +58,7 @@ router.post("/login", async (req, res) => {
       location: user.location,
       preferences: user.preferences,
       matchLock: user.matchLock,
-      "Hide Profile": user["Hide Profile"],
+      "hideProfile": user["hideProfile"],
     };
 
     return res.json({

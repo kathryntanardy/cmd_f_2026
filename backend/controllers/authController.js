@@ -24,9 +24,8 @@ const signup = async (req, res) => {
       profilePhoto,
       age,
       bio,
-      Ping,
       hideProfile,
-      "Hide Profile": hideProfileFromSchema,
+      "hideProfile": hideProfileFromSchema,
       location,
       preferences,
     } = req.body;
@@ -63,8 +62,7 @@ const signup = async (req, res) => {
       profilePhoto: profilePhoto || "",
       age,
       bio: bio || "",
-      Ping: Array.isArray(Ping) ? Ping : [],
-      "Hide Profile": Boolean(hideProfile ?? hideProfileFromSchema),
+      "hideProfile": Boolean(hideProfile ?? hideProfileFromSchema),
       location,
       preferences: preferences || {},
       matchLock: {

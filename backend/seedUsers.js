@@ -20,21 +20,6 @@ const pickGenderPreference = () => {
   return faker.helpers.arrayElements(options, count);
 };
 
-const buildPingHistory = (userId) => {
-  const now = new Date();
-  return Array.from({ length: 3 }, (_, index) => {
-    const timestamp = new Date(
-      now.getTime() - (3 - index) * faker.number.int({ min: 60, max: 300 }) * 60000
-    );
-
-    return [
-      userId + faker.number.int({ min: -15, max: 15 }),
-      timestamp.toISOString(),
-      [generateCoordinate(-123.25, -123.0), generateCoordinate(49.2, 49.35)],
-    ];
-  });
-};
-
 const buildFakeUser = (index, passwordHash) => {
   const userId = USER_ID_START + index;
   const firstName = faker.person.firstName().toLowerCase();
@@ -45,6 +30,11 @@ const buildFakeUser = (index, passwordHash) => {
   const ageMin = Math.max(19, age - faker.number.int({ min: 2, max: 5 }));
   const ageMax = age + faker.number.int({ min: 2, max: 6 });
 
+  const coordinates = [
+    generateCoordinate(-123.25, -123.0),
+    generateCoordinate(49.2, 49.35),
+  ];
+
   return {
     user_id: userId,
     username,
@@ -53,14 +43,10 @@ const buildFakeUser = (index, passwordHash) => {
     profilePhoto: faker.image.avatar(),
     age,
     bio: faker.lorem.sentence(),
-    Ping: buildPingHistory(userId),
-    "Hide Profile": false,
+    "hideProfile": false,
     location: {
       type: "Point",
-      coordinates: [
-        generateCoordinate(-123.25, -123.0), // longitude
-        generateCoordinate(49.2, 49.35), // latitude
-      ],
+      coordinates,
     },
     preferences: {
       genderPreference: pickGenderPreference(),
@@ -72,7 +58,34 @@ const buildFakeUser = (index, passwordHash) => {
       isLocked: false,
       lockedUntil: null,
     },
+    hideProfile: false,
   };
+};
+
+const addMatchesToUsers = (users) => {
+  const userIdToUser = new Map(users.map((u) => [u.user_id, u]));
+  const now = new Date();
+
+  users.forEach((user) => {
+    const otherUserIds = users
+      .filter((u) => u.user_id !== user.user_id)
+      .map((u) => u.user_id);
+
+    const matchCount = faker.number.int({ min: 2, max: 5 });
+    const picked = faker.helpers.arrayElements(otherUserIds, Math.min(matchCount, otherUserIds.length));
+
+    user.Matches = picked.map((targetUserId) => {
+      const target = userIdToUser.get(targetUserId);
+      const timestamp = new Date(
+        now.getTime() - faker.number.int({ min: 1, max: 72 }) * 60 * 60 * 1000
+      );
+      return {
+        targetUserId,
+        timestamp,
+        otherUserLocation: target?.location?.coordinates ?? [-123.1, 49.25],
+      };
+    });
+  });
 };
 
 async function seedUsers() {
@@ -84,6 +97,9 @@ async function seedUsers() {
     if (fs.existsSync(seedFilePath)) {
       const fileContents = fs.readFileSync(seedFilePath, "utf-8");
       users = JSON.parse(fileContents);
+      if (!users[0]?.Matches?.length) {
+        addMatchesToUsers(users);
+      }
       console.log(`Loaded ${users.length} users from seedUsers.json`);
     } else {
       // Every generated user shares this login password for easy local testing.
@@ -91,6 +107,7 @@ async function seedUsers() {
       users = Array.from({ length: USER_COUNT }, (_, index) =>
         buildFakeUser(index, passwordHash)
       );
+      addMatchesToUsers(users);
       console.log("seedUsers.json not found, generated fake users instead");
       console.log(`Default password for seeded users: ${DEFAULT_PASSWORD}`);
     }

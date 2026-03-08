@@ -112,6 +112,17 @@ const Dashboard: React.FC = () => {
         setIsDragging(false);
 
         if (direction === "right") {
+            const targetUser = users[currentIndex];
+            if (targetUser?.user_id != null) {
+                fetch(`${API_BASE}/api/users/me/matches`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${getToken()}`,
+                    },
+                    body: JSON.stringify({ targetUserId: targetUser.user_id }),
+                }).catch(() => {});
+            }
             setShowLikeEffect(true);
 
             setTimeout(() => {
