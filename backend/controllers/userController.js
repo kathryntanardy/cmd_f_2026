@@ -28,8 +28,8 @@ async function updateMe(req, res) {
         updates[key] = req.body[key];
       }
     }
-    if (req.body["Hide Profile"] !== undefined) {
-      updates.hideProfile = req.body["Hide Profile"];
+    if (req.body["hideProfile"] !== undefined) {
+      updates.hideProfile = req.body["hideProfile"];
     }
 
     const user = await User.findByIdAndUpdate(
@@ -79,7 +79,7 @@ async function getOthers(req, res) {
           $project: {
             passwordHash: 0,
             email: 0,
-            Ping: 0,
+            Matches: 0,
             matchLock: 0,
             createdAt: 0,
             updatedAt: 0,
@@ -88,7 +88,7 @@ async function getOthers(req, res) {
       ]);
     } else {
       users = await User.find(excludeQuery)
-        .select("-passwordHash -email -Ping -matchLock -createdAt -updatedAt")
+        .select("-passwordHash -email -Matches -matchLock -createdAt -updatedAt")
         .lean();
       users = users.map((u) => ({ ...u, distanceMeters: null }));
     }
@@ -111,4 +111,56 @@ async function getOthers(req, res) {
   }
 }
 
-module.exports = { getMe, updateMe, getOthers };
+async function addMatch(req, res) {
+  try {
+    let { targetUserId } = req.body;
+
+    if (targetUserId == null) {
+      return res.status(400).json({ message: "targetUserId is required" });
+    }
+    targetUserId = typeof targetUserId === "string" ? parseInt(targetUserId, 10) : targetUserId;
+    if (Number.isNaN(targetUserId) || typeof targetUserId !== "number") {
+      return res.status(400).json({ message: "targetUserId must be a number" });
+    }
+
+    const targetUser = await User.findOne({ user_id: targetUserId })
+      .select("location")
+      .lean();
+
+    if (!targetUser) {
+      return res.status(404).json({ message: "Target user not found" });
+    }
+
+    const otherUserLocation = targetUser.location?.coordinates;
+    if (!otherUserLocation || otherUserLocation.length !== 2) {
+      return res.status(400).json({
+        message: "Target user has no location",
+      });
+    }
+
+    const now = new Date();
+    const matchEntry = {
+      targetUserId,
+      timestamp: now,
+      otherUserLocation,
+    };
+
+    await User.findByIdAndUpdate(req.user._id, {
+      $push: { Matches: matchEntry },
+    });
+
+    res.status(201).json({
+      message: "Match added",
+      match: {
+        targetUserId,
+        timestamp: now.toISOString(),
+        otherUserLocation,
+      },
+    });
+  } catch (error) {
+    console.error("addMatch error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+module.exports = { getMe, updateMe, getOthers, addMatch };

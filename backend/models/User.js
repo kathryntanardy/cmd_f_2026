@@ -44,8 +44,14 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
-    Ping: {
-      type: [[mongoose.Schema.Types.Mixed]],
+    Matches: {
+      type: [
+        {
+          targetUserId: { type: Number, required: true },
+          timestamp: { type: Date, default: Date.now },
+          otherUserLocation: { type: [Number], required: true },
+        },
+      ],
       default: [],
     },
 

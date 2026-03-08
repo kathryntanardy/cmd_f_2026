@@ -5,25 +5,25 @@ import { API_BASE, getToken, clearAuth } from "../../utils/auth";
 import "./UserProfilePage.css";
 
 export type ProfileUser = {
-  _id?: string;
-  id?: string;
-  user_id?: number;
-  username: string;
-  email: string;
-  age: number;
-  bio?: string;
-  profilePhoto?: string;
-  location?: {
-    type: string;
-    coordinates: [number, number];
-  };
-  preferences?: {
-    genderPreference?: string[];
-    ageMin?: number;
-    ageMax?: number;
-    maxDistanceMeters?: number;
-  };
-  hideProfile?: boolean;
+    _id?: string;
+    id?: string;
+    user_id?: number;
+    username: string;
+    email: string;
+    age: number;
+    bio?: string;
+    profilePhoto?: string;
+    location?: {
+        type: string;
+        coordinates: [number, number];
+    };
+    preferences?: {
+        genderPreference?: string[];
+        ageMin?: number;
+        ageMax?: number;
+        maxDistanceMeters?: number;
+    };
+    "hideProfile"?: boolean;
 };
 
 const DEFAULT_IMAGE =
@@ -48,47 +48,39 @@ const UserProfilePage: React.FC = () => {
 
     let cancelled = false;
 
-    const loadProfile = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/users/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (cancelled) return;
-
-        if (res.status === 401) {
-          clearAuth();
-          localStorage.removeItem("user");
-          navigate("/", { replace: true });
-          return;
-        }
-
-        if (!res.ok) {
-          setError("Failed to load profile");
-          setLoading(false);
-          return;
-        }
-
-        const data = (await res.json()) as ProfileUser;
-
-        if (cancelled) return;
-
-        setUser(data);
-        setShareLocation(!(data.hideProfile ?? false));
-      } catch {
-        if (!cancelled) {
-          setError("Failed to load profile");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadProfile();
+        fetch(`${API_BASE}/api/users/me`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        })
+            .then((res) => {
+                if (cancelled) return;
+                if (res.status === 401) {
+                    clearAuth();
+                    localStorage.removeItem("user");
+                    navigate("/", { replace: true });
+                    return;
+                }
+                if (!res.ok) {
+                    setError("Failed to load profile");
+                    setLoading(false);
+                    return;
+                }
+                return res.json();
+            })
+            .then((data) => {
+                if (cancelled || !data) return;
+                setUser(data as ProfileUser);
+                setShareLocation(!(data as ProfileUser)["hideProfile"]);
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setError("Failed to load profile");
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
 
     return () => {
       cancelled = true;
@@ -108,35 +100,26 @@ const UserProfilePage: React.FC = () => {
     const newShareLocation = !shareLocation;
     const newHideProfile = !newShareLocation;
 
-    try {
-      const res = await fetch(`${API_BASE}/api/users/me`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ hideProfile: newHideProfile }),
-      });
+        try {
+            const res = await fetch(`${API_BASE}/api/users/me`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${getToken()}`,
+                },
+                body: JSON.stringify({ "hideProfile": newHideProfile }),
+            });
 
-      if (res.status === 401) {
-        clearAuth();
-        localStorage.removeItem("user");
-        navigate("/", { replace: true });
-        return;
-      }
-
-      if (!res.ok) {
-        setError("Failed to update location sharing");
-        return;
-      }
-
-      const updatedUser = (await res.json()) as ProfileUser;
-      setUser(updatedUser);
-      setShareLocation(!(updatedUser.hideProfile ?? false));
-    } catch {
-      setError("Failed to update location sharing");
-    }
-  };
+            if (res.ok) {
+                setShareLocation(newShareLocation);
+                setUser((prev) => (prev ? { ...prev, "hideProfile": newHideProfile } : null));
+            } else {
+                setError("Failed to update location sharing");
+            }
+        } catch {
+            setError("Failed to update location sharing");
+        }
+    };
 
   const handleLogout = () => {
     const confirmed = window.confirm("Are you sure you want to log out?");
