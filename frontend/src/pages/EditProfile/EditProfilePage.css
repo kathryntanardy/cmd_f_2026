@@ -232,10 +232,8 @@ body {
     }
 
     .edit-profile-photo-card {
-        max-width: 220px;
+        max-width: 100%;
     }
 
-    .edit-profile-photo-card__image {
-        height: 280px;
-    }
+
 }
