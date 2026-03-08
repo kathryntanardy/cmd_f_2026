@@ -11,11 +11,13 @@ const {
   deleteMatch,
   addPing,
   deleteExpiredPings,
+  getDailyMatchStats,
 } = require("../controllers/userController");
 
 const router = express.Router();
 
 router.get("/me", authMiddleware, getMe);
+router.get("/me/daily-match-stats", authMiddleware, getDailyMatchStats);
 router.patch("/me", authMiddleware, updateMe);
 
 router.put("/me/location", authMiddleware, updateLocation);

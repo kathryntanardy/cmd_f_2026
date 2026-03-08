@@ -1,6 +1,44 @@
 const mongoose = require("mongoose");
 const { DEFAULT_MAX_DISTANCE_METERS } = require("../constants");
 
+const pingSchema = new mongoose.Schema(
+  {
+    targetUserId: {
+      type: Number,
+      required: true,
+    },
+    timestamp: {
+      type: Date,
+      required: true,
+      default: Date.now,
+    },
+    otherUserLocation: {
+      type: [Number],
+      default: null,
+    },
+  },
+  { _id: true }
+);
+
+const matchSchema = new mongoose.Schema(
+  {
+    targetUserId: {
+      type: Number,
+      required: true,
+    },
+    timestamp: {
+      type: Date,
+      required: true,
+      default: Date.now,
+    },
+    otherUserLocation: {
+      type: [Number],
+      default: null,
+    },
+  },
+  { _id: true }
+);
+
 const userSchema = new mongoose.Schema(
   {
     user_id: {
@@ -46,7 +84,12 @@ const userSchema = new mongoose.Schema(
     },
 
     Ping: {
-      type: [[mongoose.Schema.Types.Mixed]],
+      type: [pingSchema],
+      default: [],
+    },
+
+    Matches: {
+      type: [matchSchema],
       default: [],
     },
 
@@ -62,7 +105,7 @@ const userSchema = new mongoose.Schema(
         default: "Point",
       },
       coordinates: {
-        type: [Number], // [longitude, latitude]
+        type: [Number],
         required: true,
       },
     },

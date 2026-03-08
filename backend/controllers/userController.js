@@ -3,6 +3,7 @@ const User = require("../models/User");
 const {
   DEFAULT_MAX_DISTANCE_METERS,
   MATCH_EXPIRY_MINUTES,
+  MAX_MATCHES_PER_DAY,
 } = require("../constants");
 
 const MATCH_EXPIRY_MS = MATCH_EXPIRY_MINUTES * 60 * 1000;
@@ -13,9 +14,19 @@ function isMatchExpired(match) {
   return ts && Date.now() - ts > MATCH_EXPIRY_MS;
 }
 
+function isPingExpired(ping) {
+  const ts = ping?.timestamp ? new Date(ping.timestamp).getTime() : 0;
+  return ts && Date.now() - ts > PING_EXPIRY_MS;
+}
+
 function filterUnexpiredMatches(matches) {
   if (!Array.isArray(matches)) return [];
   return matches.filter((m) => !isMatchExpired(m));
+}
+
+function filterUnexpiredPings(pings) {
+  if (!Array.isArray(pings)) return [];
+  return pings.filter((p) => !isPingExpired(p));
 }
 
 function formatMatchTime(date) {
@@ -36,6 +47,29 @@ function normalizeMatchTargetId(match) {
   return null;
 }
 
+function getStartOfTodayUtc() {
+  const now = new Date();
+  return new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      0,
+      0,
+      0,
+      0
+    )
+  );
+}
+
+function countMatchesToday(matches) {
+  const start = getStartOfTodayUtc().getTime();
+  return (matches || []).filter((m) => {
+    const ts = m?.timestamp ? new Date(m.timestamp).getTime() : 0;
+    return ts >= start;
+  }).length;
+}
+
 async function getMe(req, res) {
   try {
     const user = await User.findById(req.user._id)
@@ -47,13 +81,22 @@ async function getMe(req, res) {
     }
 
     const unexpiredMatches = filterUnexpiredMatches(user.Matches);
+    const unexpiredPings = filterUnexpiredPings(user.Ping);
 
-    const cutoff = new Date(Date.now() - MATCH_EXPIRY_MS);
+    const matchCutoff = new Date(Date.now() - MATCH_EXPIRY_MS);
+    const pingCutoff = new Date(Date.now() - PING_EXPIRY_MS);
+
     await User.findByIdAndUpdate(req.user._id, {
       $pull: {
         Matches: {
           $or: [
-            { timestamp: { $lt: cutoff } },
+            { timestamp: { $lt: matchCutoff } },
+            { timestamp: { $exists: false } },
+          ],
+        },
+        Ping: {
+          $or: [
+            { timestamp: { $lt: pingCutoff } },
             { timestamp: { $exists: false } },
           ],
         },
@@ -63,9 +106,11 @@ async function getMe(req, res) {
     const payload = {
       ...user,
       Matches: unexpiredMatches,
+      Ping: unexpiredPings,
       hideProfile: user.hideProfile ?? false,
       Likes: user.Likes ?? [],
-      Ping: user.Ping ?? [],
+      matchesUsedToday: countMatchesToday(user.Matches),
+      maxMatchesPerDay: MAX_MATCHES_PER_DAY,
     };
 
     res.json(payload);
@@ -205,9 +250,10 @@ async function getUserById(req, res) {
 async function getOthers(req, res) {
   try {
     const currentUserId = req.user._id;
+    const lookAgain = req.query.lookAgain === "true" || req.query.lookAgain === true;
 
     const currentUser = await User.findById(currentUserId)
-      .select("location preferences.maxDistanceMeters Matches")
+      .select("location preferences.maxDistanceMeters Matches Ping")
       .lean();
 
     if (!currentUser) {
@@ -222,10 +268,20 @@ async function getOthers(req, res) {
       .map(normalizeMatchTargetId)
       .filter((id) => id != null);
 
+    const unexpiredPings = filterUnexpiredPings(currentUser?.Ping ?? []);
+    const pingedUserIds = unexpiredPings
+      .map((p) => p?.targetUserId)
+      .filter((id) => id != null);
+
+    // Normally exclude both matches and pinged; "Look again" includes pinged so user can re-swipe
+    const excludedUserIds = lookAgain
+      ? matchedUserIds
+      : [...new Set([...matchedUserIds, ...pingedUserIds])];
+
     const excludeQuery = {
       _id: { $ne: new mongoose.Types.ObjectId(currentUserId) },
       hideProfile: { $ne: true },
-      user_id: { $nin: matchedUserIds },
+      user_id: { $nin: excludedUserIds },
     };
 
     const hasLocation = currentUser?.location?.coordinates?.length === 2;
@@ -339,7 +395,15 @@ async function addMatch(req, res) {
       return res.status(400).json({ message: "targetUserId must be a number" });
     }
 
-    const myUserId = req.user.user_id;
+    const currentUser = await User.findById(req.user._id)
+      .select("user_id Ping Matches location username profilePhoto")
+      .lean();
+
+    if (!currentUser) {
+      return res.status(404).json({ message: "Current user not found" });
+    }
+
+    const myUserId = currentUser.user_id;
 
     if (myUserId == null) {
       return res.status(400).json({ message: "Current user has no user_id" });
@@ -349,81 +413,120 @@ async function addMatch(req, res) {
       return res.status(400).json({ message: "You cannot match with yourself" });
     }
 
-    const [me, targetUser] = await Promise.all([
-      User.findById(req.user._id).select("Likes Matches").lean(),
-      User.findOne({ user_id: targetUserId }).select("_id location Likes Matches").lean(),
-    ]);
-
-    if (!me) {
-      return res.status(404).json({ message: "Current user not found" });
-    }
+    const targetUser = await User.findOne({ user_id: targetUserId })
+      .select("_id user_id Ping Matches location username profilePhoto")
+      .lean();
 
     if (!targetUser) {
       return res.status(404).json({ message: "Target user not found" });
     }
 
-    const targetLikes = Array.isArray(targetUser.Likes) ? targetUser.Likes : [];
-    const myLikes = Array.isArray(me.Likes) ? me.Likes : [];
+    const now = new Date();
 
-    const alreadyLiked = myLikes.includes(targetUserId);
-    const isMutual = targetLikes.includes(myUserId);
+    const myActivePings = filterUnexpiredPings(currentUser.Ping || []);
+    const theirActivePings = filterUnexpiredPings(targetUser.Ping || []);
 
-    if (!alreadyLiked) {
-      await User.findByIdAndUpdate(req.user._id, {
-        $addToSet: { Likes: targetUserId },
-      });
+    // Check if target user_id is in my Ping array (have I already pinged them?)
+    const targetInMyPing = myActivePings.some((p) => p.targetUserId === targetUserId);
+
+    if (!targetInMyPing) {
+      const pingEntry = {
+        targetUserId,
+        timestamp: now,
+        otherUserLocation: targetUser.location?.coordinates ?? null,
+      };
+      const pingUpdate = await User.updateOne(
+        { _id: req.user._id },
+        { $push: { Ping: pingEntry } },
+        { runValidators: true }
+      );
+      if (pingUpdate.modifiedCount !== 1) {
+        console.error("addMatch: Ping update did not modify document", {
+          matchedCount: pingUpdate.matchedCount,
+          modifiedCount: pingUpdate.modifiedCount,
+          userId: myUserId,
+          targetUserId,
+        });
+        return res.status(500).json({ message: "Failed to save ping" });
+      }
     }
 
-    if (!isMutual) {
+    // Check if I am in their Ping array (they already swiped right on me) → mutual match
+    const iAmInTheirPing = theirActivePings.some((p) => p.targetUserId === myUserId);
+
+    if (!iAmInTheirPing) {
       return res.status(201).json({
-        message: "Like sent",
+        message: targetInMyPing ? "Already pinged" : "Ping added",
         mutualMatch: false,
       });
     }
 
-    const existingMyMatch = (me.Matches || []).some(
-      (m) => normalizeMatchTargetId(m) === targetUserId && !isMatchExpired(m)
+    const myActiveMatches = filterUnexpiredMatches(currentUser.Matches || []);
+    const theirActiveMatches = filterUnexpiredMatches(targetUser.Matches || []);
+
+    const alreadyMatchedMe = myActiveMatches.some(
+      (m) => normalizeMatchTargetId(m) === targetUserId
+    );
+    const alreadyMatchedThem = theirActiveMatches.some(
+      (m) => normalizeMatchTargetId(m) === myUserId
     );
 
-    const existingTheirMatch = (targetUser.Matches || []).some(
-      (m) => normalizeMatchTargetId(m) === myUserId && !isMatchExpired(m)
-    );
-
-    if (existingMyMatch && existingTheirMatch) {
+    if (alreadyMatchedMe || alreadyMatchedThem) {
       return res.status(200).json({
         message: "Already matched",
         mutualMatch: true,
       });
     }
 
-    const now = new Date();
-    const timeFormatted = formatMatchTime(now);
-    const otherUserLocation = targetUser.location?.coordinates ?? null;
+    // Daily match limit: 5 matches per user per day (UTC)
+    if (countMatchesToday(currentUser.Matches) >= MAX_MATCHES_PER_DAY) {
+      return res.status(403).json({
+        message: `Daily match limit reached (${MAX_MATCHES_PER_DAY} per day). Try again tomorrow.`,
+        mutualMatch: false,
+      });
+    }
+    if (countMatchesToday(targetUser.Matches) >= MAX_MATCHES_PER_DAY) {
+      return res.status(403).json({
+        message: "This user has reached their daily match limit. Try again tomorrow.",
+        mutualMatch: false,
+      });
+    }
 
+    const timeFormatted = formatMatchTime(now);
+
+    // Match schema: targetUserId, timestamp, otherUserLocation. Each side gets the other's data.
     const myMatchEntry = {
-      user_id: targetUserId,
       targetUserId,
-      timeFormatted,
       timestamp: now,
-      otherUserLocation,
+      otherUserLocation: targetUser.location?.coordinates ?? null,
     };
 
     const theirMatchEntry = {
-      user_id: myUserId,
       targetUserId: myUserId,
-      timeFormatted,
       timestamp: now,
-      otherUserLocation: null,
+      otherUserLocation: currentUser.location?.coordinates ?? null,
     };
 
-    await Promise.all([
-      User.findByIdAndUpdate(req.user._id, {
-        $push: { Matches: myMatchEntry },
-      }),
-      User.findByIdAndUpdate(targetUser._id, {
-        $push: { Matches: theirMatchEntry },
-      }),
+    const [myMatchResult, theirMatchResult] = await Promise.all([
+      User.updateOne(
+        { _id: req.user._id },
+        { $push: { Matches: myMatchEntry } },
+        { runValidators: true }
+      ),
+      User.updateOne(
+        { _id: targetUser._id },
+        { $push: { Matches: theirMatchEntry } },
+        { runValidators: true }
+      ),
     ]);
+
+    if (myMatchResult.modifiedCount !== 1 || theirMatchResult.modifiedCount !== 1) {
+      console.error("addMatch: Match update failed", {
+        myModified: myMatchResult.modifiedCount,
+        theirModified: theirMatchResult.modifiedCount,
+      });
+      return res.status(500).json({ message: "Failed to save match" });
+    }
 
     return res.status(201).json({
       message: "It's a match!",
@@ -433,7 +536,12 @@ async function addMatch(req, res) {
         targetUserId,
         timeFormatted,
         timestamp: now.toISOString(),
-        otherUserLocation,
+        otherUserLocation: targetUser.location?.coordinates ?? null,
+      },
+      matchedUser: {
+        user_id: targetUser.user_id,
+        username: targetUser.username,
+        profilePhoto: targetUser.profilePhoto || "",
       },
     });
   } catch (error) {
@@ -460,7 +568,10 @@ async function deleteMatch(req, res) {
       return res.status(400).json({ message: "targetUserId must be a number" });
     }
 
-    const pullConditions = [{ targetUserId: resolvedTargetUserId }, { user_id: resolvedTargetUserId }];
+    const pullConditions = [
+      { targetUserId: resolvedTargetUserId },
+      { user_id: resolvedTargetUserId },
+    ];
 
     if (timestamp) {
       const ts = new Date(timestamp);
@@ -508,22 +619,34 @@ async function addPing(req, res) {
       return res.status(400).json({ message: "targetUserId must be a number" });
     }
 
-    const now = new Date();
-    const pingEntry = {
-      targetUserId,
-      timestamp: now,
-    };
+    const currentUser = await User.findById(req.user._id)
+      .select("user_id")
+      .lean();
 
-    await User.findByIdAndUpdate(req.user._id, {
-      $push: { Ping: pingEntry },
-    });
+    if (!currentUser) {
+      return res.status(404).json({ message: "Current user not found" });
+    }
 
-    res.status(201).json({
-      message: "Ping added",
-      ping: {
-        targetUserId,
-        timestamp: now.toISOString(),
-      },
+    const myUserId = currentUser.user_id;
+
+    if (myUserId == null) {
+      return res.status(400).json({ message: "Current user has no user_id" });
+    }
+
+    if (myUserId === targetUserId) {
+      return res.status(400).json({ message: "You cannot reject yourself" });
+    }
+
+    const targetUser = await User.findOne({ user_id: targetUserId }).select("_id").lean();
+
+    if (!targetUser) {
+      return res.status(404).json({ message: "Target user not found" });
+    }
+
+    // Left swipe = rejection only. No Ping added, no match logic.
+    return res.status(200).json({
+      message: "Passed",
+      mutualMatch: false,
     });
   } catch (error) {
     console.error("addPing error:", error);
@@ -552,6 +675,25 @@ async function deleteExpiredPings(req, res) {
   }
 }
 
+async function getDailyMatchStats(req, res) {
+  try {
+    const user = await User.findById(req.user._id)
+      .select("Matches")
+      .lean();
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const matchesUsedToday = countMatchesToday(user.Matches);
+    res.json({
+      matchesUsedToday,
+      maxPerDay: MAX_MATCHES_PER_DAY,
+    });
+  } catch (error) {
+    console.error("getDailyMatchStats error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
 module.exports = {
   getMe,
   updateMe,
@@ -563,4 +705,5 @@ module.exports = {
   deleteMatch,
   addPing,
   deleteExpiredPings,
+  getDailyMatchStats,
 };

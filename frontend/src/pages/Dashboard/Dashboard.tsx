@@ -5,7 +5,8 @@ import { Heart } from "lucide-react";
 import "./Dashboard.css";
 import Card from "../../components/Card/Card";
 import NavBar from "../../components/NavBar/NavBar";
-import { API_BASE, getToken, clearAuth } from "../../utils/auth";
+import Match from "../Match/Match";
+import { API_BASE, getToken, clearAuth, getStoredUser } from "../../utils/auth";
 
 type ApiUser = {
     _id: string;
@@ -24,20 +25,61 @@ type OthersResponse = {
     message?: string;
 };
 
+type PingOrMatchResponse = {
+    message?: string;
+    mutualMatch?: boolean;
+    matchedUser?: {
+        user_id?: number;
+        username?: string;
+        profilePhoto?: string;
+    };
+    match?: {
+        targetUserId?: number;
+        timestamp?: string;
+        otherUserLocation?: number[] | null;
+    };
+};
+
+type MutualMatchInfo = {
+    username: string;
+    profilePhoto?: string;
+    user_id?: number;
+    matchTimestamp?: string;
+};
+
+type DailyMatchStats = {
+    matchesUsedToday: number;
+    maxPerDay: number;
+};
+
 const DEFAULT_IMAGE =
     "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80";
 
-function formatDistance(meters: number | null | undefined): string {
-    if (meters == null) return "—";
-    if (meters < 1000) return `${Math.round(meters)} m away`;
-    const km = meters / 1000;
-    return km < 10 ? `${km.toFixed(1)} km away` : `${Math.round(km)} km away`;
+function getCurrentUserDisplayName(): string {
+    const stored = getStoredUser();
+    if (stored?.username) return stored.username;
+    try {
+        const raw = localStorage.getItem("user");
+        const u = raw ? (JSON.parse(raw) as { username?: string }) : null;
+        return u?.username ?? "You";
+    } catch {
+        return "You";
+    }
+}
+
+function getCurrentUserPhoto(): string {
+    try {
+        const raw = localStorage.getItem("user");
+        const u = raw ? (JSON.parse(raw) as { profilePhoto?: string }) : null;
+        return u?.profilePhoto ?? DEFAULT_IMAGE;
+    } catch {
+        return DEFAULT_IMAGE;
+    }
 }
 
 const SWIPE_THRESHOLD = 110;
 const LIKE_EFFECT_DELAY = 260;
 const SWIPE_OUT_DURATION = 320;
-const REFRESH_INTERVAL_MS = 5000;
 
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
@@ -51,10 +93,12 @@ const Dashboard: React.FC = () => {
     const [isAnimatingOut, setIsAnimatingOut] = useState(false);
     const [flyDirection, setFlyDirection] = useState<"left" | "right" | "">("");
     const [showLikeEffect, setShowLikeEffect] = useState(false);
-    const [mutualMatch, setMutualMatch] = useState<{ username: string } | null>(null);
+    const [mutualMatch, setMutualMatch] = useState<MutualMatchInfo | null>(null);
+    const [dailyMatchStats, setDailyMatchStats] = useState<DailyMatchStats | null>(null);
 
     const startXRef = useRef(0);
-    const intervalRef = useRef<number | null>(null);
+    const hadUsersRef = useRef(false);
+    const lookAgainSessionRef = useRef(false);
 
     const handleUnauthorized = useCallback(() => {
         clearAuth();
@@ -118,7 +162,7 @@ const Dashboard: React.FC = () => {
         return data;
     }, [getCurrentCoordinates, handleUnauthorized]);
 
-    const fetchNearbyUsers = useCallback(async () => {
+    const fetchNearbyUsers = useCallback(async (lookAgain = false) => {
         const token = getToken();
 
         if (!token) {
@@ -126,7 +170,8 @@ const Dashboard: React.FC = () => {
             throw new Error("Missing auth token");
         }
 
-        const res = await fetch(`${API_BASE}/api/users/others`, {
+        const url = `${API_BASE}/api/users/others${lookAgain ? "?lookAgain=true" : ""}`;
+        const res = await fetch(url, {
             headers: {
                 Authorization: `Bearer ${token}`,
             },
@@ -153,8 +198,27 @@ const Dashboard: React.FC = () => {
         });
     }, [handleUnauthorized]);
 
+    const fetchDailyMatchStats = useCallback(async () => {
+        const token = getToken();
+        if (!token) return;
+        try {
+            const res = await fetch(`${API_BASE}/api/users/me/daily-match-stats`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.status === 401) {
+                handleUnauthorized();
+                return;
+            }
+            if (!res.ok) return;
+            const data: DailyMatchStats = await res.json();
+            setDailyMatchStats(data);
+        } catch {
+            // ignore
+        }
+    }, [handleUnauthorized]);
+
     const refreshNearbyUsers = useCallback(
-        async (initialLoad = false) => {
+        async (initialLoad = false, lookAgain = false) => {
             try {
                 if (initialLoad) {
                     setLoading(true);
@@ -162,7 +226,8 @@ const Dashboard: React.FC = () => {
 
                 setError("");
                 await updateMyLocation();
-                await fetchNearbyUsers();
+                await fetchNearbyUsers(lookAgain);
+                await fetchDailyMatchStats();
             } catch (err) {
                 const message =
                     err instanceof Error ? err.message : "Failed to refresh nearby users";
@@ -175,47 +240,35 @@ const Dashboard: React.FC = () => {
                 }
             }
         },
-        [fetchNearbyUsers, updateMyLocation]
+        [fetchNearbyUsers, updateMyLocation, fetchDailyMatchStats]
     );
 
     useEffect(() => {
         refreshNearbyUsers(true);
     }, [refreshNearbyUsers]);
 
-    useEffect(() => {
-        intervalRef.current = window.setInterval(() => {
-            refreshNearbyUsers(false);
-        }, REFRESH_INTERVAL_MS);
-
-        return () => {
-            if (intervalRef.current !== null) {
-                window.clearInterval(intervalRef.current);
-            }
-        };
-    }, [refreshNearbyUsers]);
+    /* No auto-refresh interval: deck stays still and only changes when user swipes or clicks "Look again". */
 
     useEffect(() => {
-        const handleFocus = () => {
-            refreshNearbyUsers(false);
-        };
+        if (users.length > 0) hadUsersRef.current = true;
+    }, [users.length]);
 
-        window.addEventListener("focus", handleFocus);
-        return () => window.removeEventListener("focus", handleFocus);
-    }, [refreshNearbyUsers]);
+    useEffect(() => {
+        if (users.length === 0) lookAgainSessionRef.current = false;
+    }, [users.length]);
 
     const currentUser = users[currentIndex];
+    const deckExhausted = users.length === 0 && hadUsersRef.current && !locationRequired;
 
     const removeCurrentUserFromDeck = useCallback(() => {
         setUsers((prevUsers) => {
             if (prevUsers.length === 0) return prevUsers;
 
             const updatedUsers = prevUsers.filter((_, index) => index !== currentIndex);
+            const nextIndex =
+                updatedUsers.length === 0 ? 0 : Math.min(currentIndex, updatedUsers.length - 1);
 
-            setCurrentIndex((prevIndex) => {
-                if (updatedUsers.length === 0) return 0;
-                if (prevIndex >= updatedUsers.length) return 0;
-                return prevIndex;
-            });
+            window.setTimeout(() => setCurrentIndex(nextIndex), 0);
 
             return updatedUsers;
         });
@@ -250,7 +303,6 @@ const Dashboard: React.FC = () => {
             setFlyDirection("");
             setIsAnimatingOut(false);
             setShowLikeEffect(false);
-            refreshNearbyUsers(false);
         }, SWIPE_OUT_DURATION);
     };
 
@@ -277,14 +329,27 @@ const Dashboard: React.FC = () => {
                         handleUnauthorized();
                         return null;
                     }
-                    return res.json().catch(() => null);
+
+                    const data: PingOrMatchResponse | null = await res.json().catch(() => null);
+                    if (res.status === 403 && data?.message) {
+                        setError(data.message);
+                    }
+                    return data;
                 })
                 .then((data) => {
                     if (data?.mutualMatch === true) {
-                        setMutualMatch({ username: targetUser.username });
+                        setMutualMatch({
+                            username: data.matchedUser?.username ?? targetUser.username,
+                            profilePhoto: data.matchedUser?.profilePhoto ?? targetUser.profilePhoto,
+                            user_id: data.matchedUser?.user_id ?? targetUser.user_id,
+                            matchTimestamp: data.match?.timestamp,
+                        });
+                        fetchDailyMatchStats();
                     }
                 })
-                .catch(() => {});
+                .catch((err) => {
+                    console.error("Right swipe request failed:", err);
+                });
 
             setShowLikeEffect(true);
             setTimeout(() => {
@@ -300,7 +365,29 @@ const Dashboard: React.FC = () => {
                 Authorization: `Bearer ${getToken()}`,
             },
             body: JSON.stringify({ targetUserId: targetUser.user_id }),
-        }).catch(() => {});
+        })
+            .then(async (res) => {
+                if (res.status === 401) {
+                    handleUnauthorized();
+                    return null;
+                }
+
+                const data: PingOrMatchResponse | null = await res.json().catch(() => null);
+                console.log("Ping response:", data);
+                return data;
+            })
+            .then((data) => {
+                if (data?.mutualMatch === true) {
+                    setMutualMatch({
+                        username: data.matchedUser?.username ?? targetUser.username,
+                        profilePhoto: data.matchedUser?.profilePhoto ?? targetUser.profilePhoto,
+                        user_id: data.matchedUser?.user_id ?? targetUser.user_id,
+                    });
+                }
+            })
+            .catch((err) => {
+                console.error("Left swipe ping request failed:", err);
+            });
 
         finishSwipeOut("left");
     };
@@ -342,6 +429,11 @@ const Dashboard: React.FC = () => {
                 <div className="dashboard__header">
                     <h1 className="dashboard__title">Discover</h1>
                     <p className="dashboard__subtitle">Loading…</p>
+                    {dailyMatchStats != null && (
+                        <p className="dashboard__matches-left">
+                            {dailyMatchStats.matchesUsedToday} of {dailyMatchStats.maxPerDay} matches used today
+                        </p>
+                    )}
                 </div>
                 <NavBar />
             </div>
@@ -356,6 +448,11 @@ const Dashboard: React.FC = () => {
                     <p className="dashboard__subtitle" style={{ color: "red" }}>
                         {error}
                     </p>
+                    {dailyMatchStats != null && (
+                        <p className="dashboard__matches-left">
+                            {dailyMatchStats.matchesUsedToday} of {dailyMatchStats.maxPerDay} matches used today
+                        </p>
+                    )}
                 </div>
                 <NavBar />
             </div>
@@ -367,11 +464,43 @@ const Dashboard: React.FC = () => {
             <div className="dashboard">
                 <div className="dashboard__header">
                     <h1 className="dashboard__title">Discover</h1>
-                    <p className="dashboard__subtitle">
+                    <p className={`dashboard__subtitle ${deckExhausted && !locationRequired ? "dashboard__subtitle--accent" : ""}`}>
                         {locationRequired
                             ? "Enable location access to see nearby users within your radius."
+                            : deckExhausted
+                            ? "Find your perfect match"
                             : "No one to discover yet. Check back later!"}
                     </p>
+                    {dailyMatchStats != null && (
+                        <p className="dashboard__matches-left">
+                            {dailyMatchStats.matchesUsedToday} of {dailyMatchStats.maxPerDay} matches used today
+                        </p>
+                    )}
+                </div>
+                <div className="dashboard__empty-deck">
+                    {deckExhausted && (
+                        <>
+                            <p className="dashboard__empty-deck-text">Did you miss anyone?</p>
+                            <p className="dashboard__empty-deck-hint">
+                                Look through the list again to see who&apos;s nearby.
+                            </p>
+                        </>
+                    )}
+                    <button
+                        type="button"
+                        className="dashboard__reload-button"
+                        onClick={async () => {
+                            lookAgainSessionRef.current = true;
+                            setLoading(true);
+                            try {
+                                await refreshNearbyUsers(false, true);
+                            } finally {
+                                setLoading(false);
+                            }
+                        }}
+                    >
+                        Look again
+                    </button>
                 </div>
                 <NavBar />
             </div>
@@ -382,7 +511,6 @@ const Dashboard: React.FC = () => {
     const cardProps = {
         name: cardUser.username,
         age: cardUser.age,
-        distance: formatDistance(cardUser.distanceMeters),
         description: cardUser.bio || "—",
         image: cardUser.profilePhoto || DEFAULT_IMAGE,
         tags: cardUser.preferences?.genderPreference ?? [],
@@ -392,7 +520,12 @@ const Dashboard: React.FC = () => {
         <div className="dashboard">
             <div className="dashboard__header">
                 <h1 className="dashboard__title">Discover</h1>
-                <p className="dashboard__subtitle">Find your perfect match</p>
+                <p className="dashboard__subtitle dashboard__subtitle--accent">Find your perfect match</p>
+                {dailyMatchStats != null && (
+                    <p className="dashboard__matches-left">
+                        {dailyMatchStats.matchesUsedToday} of {dailyMatchStats.maxPerDay} matches used today
+                    </p>
+                )}
             </div>
 
             <div className="centerCard">
@@ -410,7 +543,6 @@ const Dashboard: React.FC = () => {
                     <Card
                         name={cardProps.name}
                         age={cardProps.age}
-                        distance={cardProps.distance}
                         description={cardProps.description}
                         image={cardProps.image}
                         tags={cardProps.tags}
@@ -438,22 +570,31 @@ const Dashboard: React.FC = () => {
                     className="dashboard__match-overlay"
                     role="alert"
                     aria-live="polite"
+                    aria-label="It's a match!"
                 >
-                    <div className="dashboard__match-content">
-                        <span className="dashboard__match-heart">♥</span>
-                        <h2 className="dashboard__match-title">It&apos;s a match!</h2>
-                        <p className="dashboard__match-name">
-                            You and {mutualMatch.username} liked each other.
-                        </p>
+                    <div className="dashboard__match-content dashboard__match-content--fullscreen">
+                        <Match
+                            key={`match-${mutualMatch.user_id ?? mutualMatch.username}`}
+                            leftName={getCurrentUserDisplayName()}
+                            rightName={mutualMatch.username || "Your match"}
+                            leftImage={getCurrentUserPhoto()}
+                            rightImage={mutualMatch.profilePhoto || DEFAULT_IMAGE}
+                            initialSeconds={30 * 60}
+                            matchTimestamp={mutualMatch.matchTimestamp}
+                            onMakeYourMove={() => {
+                                setMutualMatch(null);
+                                navigate("/match");
+                            }}
+                        />
                         <button
                             type="button"
-                            className="dashboard__match-dismiss"
+                            className="dashboard__match-dismiss dashboard__match-dismiss--below"
                             onClick={() => {
                                 setMutualMatch(null);
                                 navigate("/match");
                             }}
                         >
-                            View match
+                            Go to Match Map
                         </button>
                     </div>
                 </div>

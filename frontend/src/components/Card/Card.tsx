@@ -1,11 +1,9 @@
 import React from "react";
-import { MapPin } from "lucide-react";
 import "./Card.css";
 
 type CardProps = {
     name: string;
     age: number;
-    distance: string;
     description: string;
     image: string;
     tags: string[];
@@ -14,7 +12,6 @@ type CardProps = {
 const Card: React.FC<CardProps> = ({
     name,
     age,
-    distance,
     description,
     image,
     tags,
@@ -29,11 +26,6 @@ const Card: React.FC<CardProps> = ({
                 <h2 className="card__name">
                     {name}, {age}
                 </h2>
-
-                <div className="card__location">
-                    <MapPin size={16} strokeWidth={2.2} />
-                    <span>{distance}</span>
-                </div>
 
                 <p className="card__description">{description}</p>
 

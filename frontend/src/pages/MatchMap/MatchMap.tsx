@@ -4,8 +4,8 @@ import {
     AdvancedMarker,
     AdvancedMarkerAnchorPoint,
 } from "@vis.gl/react-google-maps";
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useCallback } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import point from "../../assets/points.png";
 import { API_BASE, getToken } from "../../utils/auth";
 import "./MatchMap.css";
@@ -42,10 +42,14 @@ type ApiUser = {
 
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=500&q=80";
 
-function getExpiresAt(): number {
-    return Date.now() + 30 * 60 * 1000;
-    // return Date.now() + 60 * 1000;
+const MATCH_WINDOW_MS = 30 * 60 * 1000;
+
+function getExpiresAtFromMatchTimestamp(timestamp: string): number {
+    return new Date(timestamp).getTime() + MATCH_WINDOW_MS;
 }
+
+/** Alias for getExpiresAtFromMatchTimestamp so legacy/cached references to getExpiresAt still work. */
+const getExpiresAt = getExpiresAtFromMatchTimestamp;
 
 const center: LatLng = {
     lat: 49.2827,
@@ -62,13 +66,14 @@ function formatTimeLeft(msLeft: number) {
 
 const MatchMap: React.FC = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [matches, setMatches] = useState<MatchPin[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [now, setNow] = useState(Date.now());
     const [selectedMatch, setSelectedMatch] = useState<MatchPin | null>(null);
 
-    useEffect(() => {
+    const fetchMatches = useCallback(() => {
         const token = getToken();
         if (!token) {
             navigate("/", { replace: true });
@@ -91,6 +96,7 @@ const MatchMap: React.FC = () => {
                 const pins: MatchPin[] = [];
 
                 for (const m of apiMatches) {
+                    if (!m.otherUserLocation || m.otherUserLocation.length < 2) continue;
                     const userRes = await fetch(
                         `${API_BASE}/api/users/${m.targetUserId}`,
                         { headers }
@@ -107,7 +113,7 @@ const MatchMap: React.FC = () => {
                         bio: user.bio ?? "—",
                         image: user.profilePhoto || DEFAULT_IMAGE,
                         position: { lat, lng },
-                        expiresAt: getExpiresAt(),
+                        expiresAt: getExpiresAt(m.timestamp),
                         timestamp: m.timestamp,
                     });
                 }
@@ -117,6 +123,10 @@ const MatchMap: React.FC = () => {
             .catch((err) => setError(err.message || "Failed to load matches"))
             .finally(() => setLoading(false));
     }, [navigate]);
+
+    useEffect(() => {
+        fetchMatches();
+    }, [fetchMatches, location.pathname]);
 
     useEffect(() => {
         const token = getToken();
@@ -263,11 +273,14 @@ const MatchMap: React.FC = () => {
                             <span className="match-popup-ring ring-3"></span>
 
                             <div className="match-popup">
-                                <img
-                                    src={selectedMatch.image}
-                                    alt={selectedMatch.name}
-                                    className="match-popup-image"
-                                />
+                                <div className="match-popup-image-wrap">
+                                    <img
+                                        src={selectedMatch.image}
+                                        alt={selectedMatch.name}
+                                        className="match-popup-image"
+                                    />
+                                    <div className="match-popup-image-gradient" aria-hidden />
+                                </div>
 
                                 <div className="match-popup-content">
                                     <h2 className="match-popup-name">

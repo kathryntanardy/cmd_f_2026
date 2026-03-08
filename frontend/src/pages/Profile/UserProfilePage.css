@@ -1,16 +1,10 @@
-body {
-    background: #ece7df;
-    font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    color: #342f2b;
-}
-
 * {
     box-sizing: border-box;
 }
 
 .profile-page {
     height: 100vh;
-    background: #ece7df;
+    background: linear-gradient(180deg, #fff7fb 0%, #fff 45%, #fff5f7 100%);
     padding-bottom: calc(80px + 24px);
     overflow: auto;
 }
@@ -25,7 +19,7 @@ body {
 .profile-page__loading {
     padding: 2rem;
     text-align: center;
-    color: #8b8278;
+    color: #756a7f;
 }
 
 .profile-page__header {
@@ -37,9 +31,10 @@ body {
 
 .profile-page__title {
     margin: 0;
-    font-size: 2.5rem;
+    font-family: "Recoleta", serif;
+    font-size: 2.75rem; /* +4px from 2.5rem */
     font-weight: 700;
-    color: #2f2b2a;
+    color: #241a2d;
     line-height: 1.05;
     text-align: left;
     align-self: flex-start;
@@ -50,7 +45,7 @@ body {
     height: 34px;
     border: none;
     background: transparent;
-    color: #342f2b;
+    color: #d14d72;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -60,7 +55,7 @@ body {
 }
 
 .profile-page__icon-button:hover {
-    background: rgba(52, 47, 43, 0.06);
+    background: rgba(209, 77, 114, 0.1);
 }
 
 .profile-page__content {
@@ -76,6 +71,7 @@ body {
     overflow: hidden;
     border-radius: 16px;
     background: #d8d1c5;
+    box-shadow: 0 28px 60px rgba(50, 20, 40, 0.28), 0 12px 32px rgba(0, 0, 0, 0.2);
 }
 
 .profile-photo-card__image {
@@ -85,10 +81,27 @@ body {
     display: block;
 }
 
+/* Gradient overlay: darker at bottom, fades to less dark toward top (same as Card / Match Map) */
+.profile-photo-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to top,
+        rgba(0, 0, 0, 0.55) 0%,
+        rgba(0, 0, 0, 0.2) 35%,
+        rgba(0, 0, 0, 0.05) 60%,
+        transparent 100%
+    );
+    pointer-events: none;
+    z-index: 1;
+}
+
 .profile-photo-card__camera-button {
     position: absolute;
     right: 14px;
     bottom: 14px;
+    z-index: 2;
     width: 40px;
     height: 40px;
     border: none;
@@ -102,53 +115,58 @@ body {
     cursor: pointer;
 }
 
+/* Profile info card – Match Map “Active Matches” pill style */
 .profile-info-card {
     max-width: 450px;
     margin: 0 auto;
     width: 100%;
-    background: #e4ddd0;
-    border-radius: 16px;
-    padding: 18px 16px;
+    padding: 20px 20px;
+    border-radius: 28px;
+    background: #fce7ef;
+    color: #b83268;
+    font-size: 13px;
+    font-weight: 700;
 }
 
 .profile-info-card__top {
-    margin-bottom: 10px;
+    margin-bottom: 14px;
 }
 
 .profile-info-card__name {
-    margin: 0 0 4px;
-    font-size: 1.5rem;
+    margin: 0 0 6px;
+    font-size: 1.25rem;
     font-weight: 700;
-    color: #342f2b;
+    color: #b83268;
     text-align: left;
 }
 
 .profile-info-card__location {
     display: flex;
     align-items: center;
-    gap: 4px;
-    color: #7d7369;
-    font-size: 0.82rem;
-    font-weight: 500;
+    gap: 6px;
+    color: #9a3d5c;
+    font-size: 0.85rem;
+    font-weight: 600;
 }
 
 .profile-info-card__section+.profile-info-card__section {
-    margin-top: 12px;
+    margin-top: 14px;
 }
 
 .profile-info-card__label {
     margin: 0 0 6px;
-    font-size: 0.86rem;
-    font-weight: 600;
-    color: #342f2b;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #b83268;
     text-align: left;
 }
 
 .profile-info-card__text {
     margin: 0;
-    font-size: 0.83rem;
+    font-size: 0.85rem;
     line-height: 1.55;
-    color: #7b7065;
+    font-weight: 500;
+    color: #7d4a5e;
     text-align: left;
 }
 
@@ -159,23 +177,24 @@ body {
 }
 
 .profile-info-card__tag {
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 999px;
-    background: rgba(181, 58, 50, 0.08);
-    border: 1px solid rgba(181, 58, 50, 0.18);
-    color: #b53a32;
-    font-size: 0.76rem;
-    font-weight: 500;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(184, 50, 104, 0.25);
+    color: #b83268;
+    font-size: 0.78rem;
+    font-weight: 700;
     line-height: 1;
 }
 
+/* Share Location – same pill/card style as profile info card */
 .profile-setting-card {
     max-width: 450px;
     margin: 0 auto;
     width: 100%;
-    background: #e4ddd0;
-    border-radius: 14px;
-    padding: 14px 16px;
+    background: #fce7ef;
+    border-radius: 28px;
+    padding: 16px 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -185,15 +204,15 @@ body {
 .profile-setting-card__left {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
 }
 
 .profile-setting-card__icon-wrap {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     border-radius: 999px;
-    background: rgba(181, 58, 50, 0.08);
-    color: #d05d57;
+    background: rgba(184, 50, 104, 0.15);
+    color: #b83268;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -208,24 +227,25 @@ body {
 
 .profile-setting-card__title {
     margin: 0;
-    font-size: 0.84rem;
-    font-weight: 600;
-    color: #342f2b;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #b83268;
 }
 
 .profile-setting-card__subtitle {
     margin: 0;
-    font-size: 0.73rem;
-    color: #8a7f73;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #7d4a5e;
     line-height: 1.4;
 }
 
 .profile-switch {
-    width: 42px;
-    height: 22px;
+    width: 44px;
+    height: 24px;
     border: none;
     border-radius: 999px;
-    background: #d3cabd;
+    background: rgba(184, 50, 104, 0.2);
     position: relative;
     cursor: pointer;
     padding: 0;
@@ -234,17 +254,18 @@ body {
 }
 
 .profile-switch--on {
-    background: #b1342e;
+    background: #b83268;
 }
 
 .profile-switch__thumb {
     position: absolute;
     top: 3px;
     left: 3px;
-    width: 16px;
-    height: 16px;
-    background: #f8f2ea;
+    width: 18px;
+    height: 18px;
+    background: #fff;
     border-radius: 999px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
     transition: transform 0.2s ease;
 }
 
@@ -252,18 +273,19 @@ body {
     transform: translateX(20px);
 }
 
+/* Edit Profile & Log Out – same pill style */
 .profile-page__primary-button,
 .profile-page__secondary-button {
     max-width: 450px;
     margin-left: auto;
     margin-right: auto;
     width: 100%;
-    min-height: 44px;
-    border-radius: 12px;
-    font-size: 0.86rem;
-    font-weight: 600;
+    min-height: 48px;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    font-weight: 700;
     cursor: pointer;
-    transition: transform 0.15s ease, background 0.2s ease;
+    transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 .profile-page__primary-button:active,
@@ -273,18 +295,18 @@ body {
 
 .profile-page__primary-button {
     border: none;
-    background: #b1342e;
-    color: #f8f2ea;
+    background: #b83268;
+    color: #fff;
 }
 
 .profile-page__primary-button:hover {
-    background: #a42f2a;
+    background: #9a2d58;
 }
 
 .profile-page__secondary-button {
-    border: 1px solid #d0c5b7;
-    background: #e4ddd0;
-    color: #342f2b;
+    border: 2px solid #b83268;
+    background: #fce7ef;
+    color: #b83268;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -292,7 +314,9 @@ body {
 }
 
 .profile-page__secondary-button:hover {
-    background: #ddd5c8;
+    background: #f5d9e4;
+    border-color: #9a2d58;
+    color: #9a2d58;
 }
 
 @media (max-width: 640px) {
@@ -305,6 +329,6 @@ body {
     }
 
     .profile-page__title {
-        font-size: 2rem;
+        font-size: 2.25rem;
     }
 }

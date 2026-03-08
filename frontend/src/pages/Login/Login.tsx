@@ -175,7 +175,7 @@ const LoginPage: React.FC = () => {
           <span className="heart-icon">♡</span>
         </div>
 
-        <h1>Welcome Back</h1>
+        <h1>LoveSignal</h1>
         <p>Sign in to continue your journey</p>
       </div>
 
@@ -208,16 +208,13 @@ const LoginPage: React.FC = () => {
           </div>
 
           {error && (
-            <p
-              className="login-error"
-              style={{ color: "red", whiteSpace: "pre-wrap" }}
-            >
+            <p className="login-error">
               {error}
             </p>
           )}
 
           <button type="submit" className="sign-in-btn" disabled={loading}>
-            {loading ? "Signing In..." : "Sign In"}
+            {loading ? "Logging in..." : "Log In"}
           </button>
         </form>
 
