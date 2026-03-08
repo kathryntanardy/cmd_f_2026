@@ -23,8 +23,11 @@ export type ProfileUser = {
         ageMax?: number;
         maxDistanceMeters?: number;
     };
-    "Hide Profile"?: boolean;
+  hideProfile?: boolean;
 };
+
+const DEFAULT_IMAGE =
+  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80";
 
 const UserProfilePage: React.FC = () => {
     const navigate = useNavigate();
@@ -35,46 +38,57 @@ const UserProfilePage: React.FC = () => {
 
     useEffect(() => {
         const token = getToken();
-        if (!token) {
+
+    if (!token) {
+      clearAuth();
+      localStorage.removeItem("user");
             navigate("/", { replace: true });
             return;
         }
 
         let cancelled = false;
 
-        fetch(`${API_BASE}/api/users/me`, {
+    const loadProfile = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/users/me`, {
             headers: {
                 Authorization: `Bearer ${token}`,
             },
-        })
-            .then((res) => {
+        });
+
                 if (cancelled) return;
+
                 if (res.status === 401) {
                     clearAuth();
                     localStorage.removeItem("user");
                     navigate("/", { replace: true });
                     return;
                 }
+
                 if (!res.ok) {
                     setError("Failed to load profile");
                     setLoading(false);
                     return;
                 }
-                return res.json();
-            })
-            .then((data) => {
-                if (cancelled || !data) return;
-                setUser(data as ProfileUser);
-                setShareLocation(!(data as ProfileUser)["Hide Profile"]);
-            })
-            .catch(() => {
+
+        const data = (await res.json()) as ProfileUser;
+
+        if (cancelled) return;
+
+        setUser(data);
+        setShareLocation(!(data.hideProfile ?? false));
+      } catch {
                 if (!cancelled) {
                     setError("Failed to load profile");
                 }
-            })
-            .finally(() => {
-                if (!cancelled) setLoading(false);
-            });
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadProfile();
 
         return () => {
             cancelled = true;
@@ -82,25 +96,43 @@ const UserProfilePage: React.FC = () => {
     }, [navigate]);
 
     const handleToggleShareLocation = async () => {
-        const newHideProfile = shareLocation;
+    const token = getToken();
+
+    if (!token) {
+      clearAuth();
+      localStorage.removeItem("user");
+      navigate("/", { replace: true });
+      return;
+    }
+
         const newShareLocation = !shareLocation;
+    const newHideProfile = !newShareLocation;
 
         try {
             const res = await fetch(`${API_BASE}/api/users/me`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${getToken()}`,
+          Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({ "Hide Profile": newHideProfile }),
+        body: JSON.stringify({ hideProfile: newHideProfile }),
             });
 
-            if (res.ok) {
-                setShareLocation(newShareLocation);
-                setUser((prev) => (prev ? { ...prev, "Hide Profile": newHideProfile } : null));
-            } else {
+      if (res.status === 401) {
+        clearAuth();
+        localStorage.removeItem("user");
+        navigate("/", { replace: true });
+        return;
+      }
+
+      if (!res.ok) {
                 setError("Failed to update location sharing");
+        return;
             }
+
+      const updatedUser = (await res.json()) as ProfileUser;
+      setUser(updatedUser);
+      setShareLocation(!(updatedUser.hideProfile ?? false));
         } catch {
             setError("Failed to update location sharing");
         }
@@ -108,29 +140,57 @@ const UserProfilePage: React.FC = () => {
 
     const handleLogout = () => {
         const confirmed = window.confirm("Are you sure you want to log out?");
-        if (confirmed) {
+    if (!confirmed) return;
+
+    setUser(null);
+    setShareLocation(true);
+    setError("");
+    setLoading(false);
+
+    clearAuth();
             localStorage.removeItem("user");
-            clearAuth();
+    localStorage.removeItem("token");
+
             navigate("/", { replace: true });
-        }
     };
 
-    if (loading || !user) {
+  if (loading) {
+    return (
+      <div className="profile-page">
+        <div className="profile-page__container">
+          <p className="profile-page__loading">Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !user) {
+    return (
+      <div className="profile-page">
+        <div className="profile-page__container">
+          <p className="profile-page__loading">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
         return (
             <div className="profile-page">
                 <div className="profile-page__container">
-                    <p className="profile-page__loading">
-                        {error || "Loading…"}
-                    </p>
+          <p className="profile-page__loading">No profile found.</p>
                 </div>
             </div>
         );
     }
 
-    const photo = user.profilePhoto || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80";
-    const locationLabel = user.location?.coordinates?.length === 2
-        ? `${user.location.coordinates[1].toFixed(4)}°, ${user.location.coordinates[0].toFixed(4)}°`
-        : "—";
+  const photo = user.profilePhoto || DEFAULT_IMAGE;
+
+  const locationLabel =
+    user.location?.coordinates?.length === 2
+      ? `${user.location.coordinates[1].toFixed(4)}°, ${user.location.coordinates[0].toFixed(4)}°`
+      : "—";
+
     const interests = user.preferences?.genderPreference ?? [];
 
     return (
@@ -180,11 +240,8 @@ const UserProfilePage: React.FC = () => {
 
                         <div className="profile-info-card__section">
                             <h3 className="profile-info-card__label">About</h3>
-                            <p className="profile-info-card__text">
-                                {user.bio || "—"}
-                            </p>
+              <p className="profile-info-card__text">{user.bio || "—"}</p>
                         </div>
-
 
                         {interests.length > 0 && (
                             <div className="profile-info-card__section">
@@ -212,6 +269,7 @@ const UserProfilePage: React.FC = () => {
                                 </p>
                             </div>
                         </div>
+
                         <button
                             type="button"
                             className={`profile-switch ${shareLocation ? "profile-switch--on" : ""}`}

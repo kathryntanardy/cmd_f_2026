@@ -5,7 +5,7 @@ import { Heart } from "lucide-react";
 import "./Dashboard.css";
 import Card from "../../components/Card/Card";
 import NavBar from "../../components/NavBar/NavBar";
-import { API_BASE, getToken } from "../../utils/auth";
+import { API_BASE, getToken, clearAuth } from "../../utils/auth";
 
 type ApiUser = {
     _id: string;
@@ -48,6 +48,8 @@ const Dashboard: React.FC = () => {
     useEffect(() => {
         const token = getToken();
         if (!token) {
+            clearAuth();
+            localStorage.removeItem("user");
             navigate("/", { replace: true });
             return;
         }
@@ -57,6 +59,8 @@ const Dashboard: React.FC = () => {
         })
             .then((res) => {
                 if (res.status === 401) {
+                    clearAuth();
+                    localStorage.removeItem("user");
                     navigate("/", { replace: true });
                     return null;
                 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { setAuth } from "../../utils/auth";
+import { useNavigate, Link } from "react-router-dom";
+import { setAuth, getToken } from "../../utils/auth";
 import "./Login.css";
 
 type LoginResponse = {
@@ -42,9 +42,15 @@ const LoginPage: React.FC = () => {
 
   useEffect(() => {
     const existingUser = localStorage.getItem("user");
+    const token = getToken();
 
-    if (existingUser) {
+    if (existingUser && token) {
       navigate("/dashboard", { replace: true });
+      return;
+    }
+
+    if (existingUser && !token) {
+      localStorage.removeItem("user");
     }
   }, [navigate]);
 
@@ -89,6 +95,7 @@ const LoginPage: React.FC = () => {
       }
 
       localStorage.setItem("user", JSON.stringify(data.user));
+
       if (data.token) {
         setAuth(data.token, {
           user_id: data.user.user_id ?? 0,
@@ -96,6 +103,7 @@ const LoginPage: React.FC = () => {
           email: data.user.email,
         });
       }
+
       navigate("/dashboard", { replace: true });
     } catch (err) {
       console.error("Login error:", err);
@@ -159,7 +167,7 @@ const LoginPage: React.FC = () => {
         </form>
 
         <p className="signup-text">
-          Don&apos;t have an account? <a href="/signup">Sign up</a>
+          Don&apos;t have an account? <Link to="/signup">Sign up</Link>
         </p>
       </div>
     </div>
