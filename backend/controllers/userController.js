@@ -51,6 +51,28 @@ async function updateMe(req, res) {
   }
 }
 
+async function getUserById(req, res) {
+  try {
+    const userId = parseInt(req.params.userId, 10);
+    if (Number.isNaN(userId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    const user = await User.findOne({ user_id: userId })
+      .select("-passwordHash -email -Matches -matchLock -createdAt -updatedAt")
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error("getUserById error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
 async function getOthers(req, res) {
   try {
     const currentUserId = req.user._id;
@@ -111,6 +133,29 @@ async function getOthers(req, res) {
   }
 }
 
+async function getMatches(req, res) {
+  try {
+    const user = await User.findById(req.user._id)
+      .select("Matches")
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const matches = (user.Matches || []).map((m) => ({
+      targetUserId: m.targetUserId,
+      timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp,
+      otherUserLocation: m.otherUserLocation,
+    }));
+
+    res.json({ matches });
+  } catch (error) {
+    console.error("getMatches error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
 async function addMatch(req, res) {
   try {
     let { targetUserId } = req.body;
@@ -163,4 +208,42 @@ async function addMatch(req, res) {
   }
 }
 
-module.exports = { getMe, updateMe, getOthers, addMatch };
+async function deleteMatch(req, res) {
+  try {
+    const { targetUserId, timestamp } = req.body;
+
+    if (targetUserId == null) {
+      return res.status(400).json({ message: "targetUserId is required" });
+    }
+
+    const resolvedTargetUserId = typeof targetUserId === "string" ? parseInt(targetUserId, 10) : targetUserId;
+    if (Number.isNaN(resolvedTargetUserId) || typeof resolvedTargetUserId !== "number") {
+      return res.status(400).json({ message: "targetUserId must be a number" });
+    }
+
+    const pullCondition = { targetUserId: resolvedTargetUserId };
+    if (timestamp) {
+      const ts = new Date(timestamp);
+      if (!Number.isNaN(ts.getTime())) {
+        pullCondition.timestamp = ts;
+      }
+    }
+
+    const result = await User.findByIdAndUpdate(
+      req.user._id,
+      { $pull: { Matches: pullCondition } },
+      { new: true }
+    );
+
+    if (!result) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ message: "Match removed" });
+  } catch (error) {
+    console.error("deleteMatch error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+module.exports = { getMe, updateMe, getUserById, getOthers, getMatches, addMatch, deleteMatch };
