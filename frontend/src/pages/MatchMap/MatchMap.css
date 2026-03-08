@@ -22,7 +22,20 @@
     text-transform: uppercase;
     color: #d14d72;
   }
-
+  
+  .matchmap-title {
+    margin: 0 0 8px;
+    font-size: 36px;
+    font-weight: 800;
+    color: #241a2d;
+  }
+  
+  .matchmap-subtitle {
+    margin: 0;
+    font-size: 15px;
+    color: #756a7f;
+  }
+  
   .map-card {
     background: rgba(255, 255, 255, 0.88);
     border: 1px solid rgba(218, 200, 210, 0.7);
@@ -79,6 +92,15 @@
     align-items: center;
   }
   
+  .clickable-marker {
+    cursor: pointer;
+    transition: transform 0.18s ease;
+  }
+  
+  .clickable-marker:hover {
+    transform: translateY(-4px);
+  }
+  
   .timer-bubble {
     margin-bottom: 6px;
     padding: 4px 8px;
@@ -98,6 +120,188 @@
   .marker-icon {
     width: 60px;
     display: block;
+  }
+  
+  /* Popup overlay */
+  .match-popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 12, 18, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 999;
+  }
+  
+  /* Wrap for signal rings + popup */
+  .match-popup-pulse-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Expanding signal rings */
+  .match-popup-ring {
+    position: absolute;
+    inset: -6px;
+    border-radius: 30px;
+    border: 4px solid rgba(255, 120, 180, 0.75);
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transform: scale(1);
+  
+    /* soft glow */
+    box-shadow:
+      0 0 10px rgba(255, 120, 180, 0.8),
+      0 0 24px rgba(255, 120, 180, 0.6),
+      0 0 60px rgba(255, 120, 180, 0.35);
+  
+    animation: signalRing 2.6s ease-out infinite;
+  }
+  
+  .ring-1 {
+    animation-delay: 0s;
+  }
+  
+  .ring-2 {
+    animation-delay: 0.8s;
+  }
+  
+  .ring-3 {
+    animation-delay: 1.6s;
+  }
+  
+  /* Popup card */
+  .match-popup {
+    position: relative;
+    width: 100%;
+    background: white;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+    animation: popupFade 0.2s ease;
+    z-index: 3;
+  }
+  
+  .match-popup-image {
+    width: 100%;
+    height: 260px;
+    object-fit: cover;
+    display: block;
+  }
+  
+  .match-popup-content {
+    padding: 20px;
+  }
+  
+  .match-popup-name {
+    margin: 0 0 10px;
+    font-size: 28px;
+    font-weight: 800;
+    color: #241a2d;
+  }
+  
+  .match-popup-bio {
+    margin: 0 0 14px;
+    font-size: 15px;
+    line-height: 1.5;
+    color: #5f5468;
+  }
+  
+  .match-popup-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  
+  .match-tag {
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: #fce7ef;
+    color: #b83268;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  
+  .match-popup-timer {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 0 18px;
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #ff5f8f, #d14d72);
+    color: white;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    box-shadow:
+      0 8px 20px rgba(209, 77, 114, 0.28),
+      0 0 18px rgba(255, 120, 180, 0.22);
+  }
+  
+  .match-popup-button {
+    width: 100%;
+    border: none;
+    border-radius: 14px;
+    padding: 14px 16px;
+    background: linear-gradient(135deg, #ff5f8f, #d14d72);
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+  }
+  
+  .match-popup-button:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+  }
+  
+  .match-popup-button:active {
+    transform: translateY(0);
+  }
+  
+  /* Animations */
+  @keyframes popupFade {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  
+  @keyframes signalRing {
+
+    0% {
+      opacity: 0;
+      transform: scale(1);
+      border-width: 4px;
+    }
+  
+    10% {
+      opacity: 1;
+    }
+  
+    50% {
+      opacity: 0.65;
+    }
+  
+    100% {
+      opacity: 0;
+      transform: scale(1.35);
+      border-width: 2px;
+    }
+  
   }
   
   @media (max-width: 768px) {
@@ -123,5 +327,25 @@
       min-height: 360px;
       max-height: 500px;
       border-radius: 18px;
+    }
+  
+    .match-popup-pulse-wrap {
+      max-width: 100%;
+    }
+  
+    .match-popup {
+      border-radius: 22px;
+    }
+  
+    .match-popup-ring {
+      border-radius: 22px;
+    }
+  
+    .match-popup-image {
+      height: 220px;
+    }
+  
+    .match-popup-name {
+      font-size: 24px;
     }
   }
