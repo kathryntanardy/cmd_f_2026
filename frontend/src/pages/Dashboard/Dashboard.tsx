@@ -1,45 +1,41 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Heart } from "lucide-react";
 
 import "./Dashboard.css";
 import Card from "../../components/Card/Card";
 import NavBar from "../../components/NavBar/NavBar";
+import { API_BASE, getToken } from "../../utils/auth";
 
-const users = [
-    {
-        id: 1,
-        name: "Sarah",
-        age: 26,
-        distance: "1 mile away",
-        description: "Artist and dog lover. Always up for an adventure.",
-        image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80",
-        tags: ["art", "dogs", "hiking"],
-    },
-    {
-        id: 2,
-        name: "Emma",
-        age: 24,
-        distance: "3 miles away",
-        description: "Coffee addict and weekend traveler.",
-        image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=80",
-        tags: ["coffee", "travel", "music"],
-    },
-    {
-        id: 3,
-        name: "Olivia",
-        age: 27,
-        distance: "2 miles away",
-        description: "Photographer and nature lover.",
-        image: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&w=900&q=80",
-        tags: ["photography", "nature", "hiking"],
-    },
-];
+type ApiUser = {
+    _id: string;
+    user_id?: number;
+    username: string;
+    age: number;
+    bio?: string;
+    profilePhoto?: string;
+    preferences?: { genderPreference?: string[] };
+    distanceMeters?: number | null;
+};
+
+const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80";
+
+function formatDistance(meters: number | null | undefined): string {
+    if (meters == null) return "—";
+    if (meters < 1000) return `${Math.round(meters)} m away`;
+    const km = meters / 1000;
+    return km < 10 ? `${km.toFixed(1)} km away` : `${Math.round(km)} km away`;
+}
 
 const SWIPE_THRESHOLD = 110;
 const LIKE_EFFECT_DELAY = 260;
 const SWIPE_OUT_DURATION = 320;
 
 const Dashboard: React.FC = () => {
+    const navigate = useNavigate();
+    const [users, setUsers] = useState<ApiUser[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
     const [currentIndex, setCurrentIndex] = useState(0);
     const [dragX, setDragX] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
@@ -48,6 +44,31 @@ const Dashboard: React.FC = () => {
     const [showLikeEffect, setShowLikeEffect] = useState(false);
 
     const startXRef = useRef(0);
+
+    useEffect(() => {
+        const token = getToken();
+        if (!token) {
+            navigate("/", { replace: true });
+            return;
+        }
+
+        fetch(`${API_BASE}/api/users/others`, {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then((res) => {
+                if (res.status === 401) {
+                    navigate("/", { replace: true });
+                    return null;
+                }
+                if (!res.ok) throw new Error("Failed to load users");
+                return res.json();
+            })
+            .then((data) => {
+                if (data?.users) setUsers(data.users);
+            })
+            .catch((err) => setError(err.message || "Failed to load users"))
+            .finally(() => setLoading(false));
+    }, [navigate]);
 
     const currentUser = users[currentIndex];
 
@@ -136,6 +157,52 @@ const Dashboard: React.FC = () => {
               transition: isDragging ? "none" : "transform 0.25s ease",
           };
 
+    if (loading) {
+        return (
+            <div className="dashboard">
+                <div className="dashboard__header">
+                    <h1 className="dashboard__title">Discover</h1>
+                    <p className="dashboard__subtitle">Loading…</p>
+                </div>
+                <NavBar />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="dashboard">
+                <div className="dashboard__header">
+                    <h1 className="dashboard__title">Discover</h1>
+                    <p className="dashboard__subtitle" style={{ color: "red" }}>{error}</p>
+                </div>
+                <NavBar />
+            </div>
+        );
+    }
+
+    if (users.length === 0) {
+        return (
+            <div className="dashboard">
+                <div className="dashboard__header">
+                    <h1 className="dashboard__title">Discover</h1>
+                    <p className="dashboard__subtitle">No one to discover yet. Check back later!</p>
+                </div>
+                <NavBar />
+            </div>
+        );
+    }
+
+    const cardUser = currentUser;
+    const cardProps = {
+        name: cardUser.username,
+        age: cardUser.age,
+        distance: formatDistance(cardUser.distanceMeters),
+        description: cardUser.bio || "—",
+        image: cardUser.profilePhoto || DEFAULT_IMAGE,
+        tags: cardUser.preferences?.genderPreference ?? [],
+    };
+
     return (
         <div className="dashboard">
             <div className="dashboard__header">
@@ -156,12 +223,12 @@ const Dashboard: React.FC = () => {
                     onPointerCancel={handlePointerUp}
                 >
                     <Card
-                        name={currentUser.name}
-                        age={currentUser.age}
-                        distance={currentUser.distance}
-                        description={currentUser.description}
-                        image={currentUser.image}
-                        tags={currentUser.tags}
+                        name={cardProps.name}
+                        age={cardProps.age}
+                        distance={cardProps.distance}
+                        description={cardProps.description}
+                        image={cardProps.image}
+                        tags={cardProps.tags}
                     />
 
                     <div
