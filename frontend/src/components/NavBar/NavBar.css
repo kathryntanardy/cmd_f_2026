@@ -62,12 +62,13 @@
     font-weight: 500;
 }
 
-/* Active state */
-.navbar__item.active {
-    color: #ff4458;
+/* Active state (Match Map theme) */
+.navbar__item.active,
+.navbar__item.active .navbar__icon {
+    color: #d14d72;
 }
 
 /* Hover effect (desktop) */
 .navbar__item:hover {
-    color: #ff4458;
+    color: #d14d72;
 }

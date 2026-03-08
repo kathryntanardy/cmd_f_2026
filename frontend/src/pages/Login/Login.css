@@ -2,217 +2,238 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-  }
-  
-  body {
-    font-family: Arial, Helvetica, sans-serif;
-    background: #f6f2ec;
-    color: #2d2a2a;
-  }
-  
-  .login-page {
+}
+
+.login-page {
     min-height: 100vh;
-    background: #f6f2ec;
+    background: linear-gradient(180deg, #fff7fb 0%, #fff 45%, #fff5f7 100%);
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 40px 20px 60px;
-  }
-  
-  .login-header {
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    color: #241a2d;
+}
+
+.login-header {
     text-align: center;
     margin-bottom: 40px;
-  }
-  
-  .icon-circle {
+}
+
+.icon-circle {
     width: 120px;
     height: 120px;
     border-radius: 50%;
-    background: #e9dfd7;
+    background: #fce7ef;
     display: flex;
     align-items: center;
     justify-content: center;
     margin: 0 auto 28px;
-  }
-  
-  .heart-icon {
+    box-shadow: 0 8px 24px rgba(184, 50, 104, 0.12);
+}
+
+.heart-icon {
     font-size: 64px;
-    color: #96342f;
+    color: #b83268;
     line-height: 1;
-  }
-  
-  .login-header h1 {
-    font-size: 64px;
+}
+
+.login-header h1 {
+    font-family: "Recoleta", serif;
+    font-size: 3.5rem;
     font-weight: 700;
-    color: #2d2a2a;
+    color: #241a2d;
     margin-bottom: 16px;
-  }
-  
-  .login-header p {
-    font-size: 28px;
-    color: #8b7d72;
-    font-weight: 400;
-  }
-  
-  .login-card {
+}
+
+.login-header p {
+    font-size: 1.2rem;
+    color: #756a7f;
+    font-weight: 500;
+}
+
+.login-card {
     width: 100%;
-    max-width: 980px;
-    background: #f1ece3;
-    border-radius: 32px;
-    padding: 60px 70px 50px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-  }
-  
-  .login-form {
+    max-width: 440px;
+    background: #fce7ef;
+    border-radius: 28px;
+    padding: 40px 32px 36px;
+    box-shadow: 0 20px 50px rgba(50, 20, 40, 0.12);
+}
+
+.login-form {
     width: 100%;
-  }
-  
-  .form-group {
-    margin-bottom: 52px;
-  }
-  
-  .form-group label {
+}
+
+.form-group {
+    margin-bottom: 28px;
+}
+
+.form-group label {
     display: block;
-    font-size: 28px;
-    font-weight: 600;
-    color: #222;
-    margin-bottom: 22px;
-  }
-  
-  .form-group input {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #b83268;
+    margin-bottom: 10px;
+}
+
+.form-group input {
     width: 100%;
-    border: none;
+    border: 2px solid rgba(184, 50, 104, 0.25);
+    border-radius: 999px;
     outline: none;
-    background: transparent;
-    font-size: 26px;
-    color: #444;
-    padding: 8px 0;
-    border-bottom: 1px solid transparent;
-  }
-  
-  .form-group input::placeholder {
-    color: #9a9288;
-  }
-  
-  .sign-in-btn {
+    background: rgba(255, 255, 255, 0.8);
+    font-size: 1rem;
+    color: #241a2d;
+    padding: 14px 20px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.form-group input:focus {
+    border-color: #b83268;
+    background: #fff;
+}
+
+.form-group input::placeholder {
+    color: #9a8a92;
+}
+
+.login-error {
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #b83268;
+    white-space: pre-wrap;
+}
+
+.sign-in-btn {
     width: 100%;
-    background: #96342f;
-    color: #fff4ef;
+    background: #b83268;
+    color: #fff;
     border: none;
-    border-radius: 18px;
-    padding: 22px;
-    font-size: 30px;
+    border-radius: 999px;
+    padding: 16px 24px;
+    font-size: 1rem;
     font-weight: 700;
     cursor: pointer;
-    transition: 0.2s ease;
-    margin-top: 10px;
-  }
-  
-  .sign-in-btn:hover {
-    opacity: 0.95;
+    transition: background 0.2s ease, transform 0.15s ease;
+    margin-top: 8px;
+}
+
+.sign-in-btn:hover:not(:disabled) {
+    background: #9a2d58;
     transform: translateY(-1px);
-  }
-  
-  .signup-text {
+}
+
+.sign-in-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.signup-text {
     text-align: center;
-    margin-top: 38px;
-    font-size: 24px;
-    color: #8b7d72;
-  }
-  
-  .signup-text a {
-    color: #96342f;
+    margin-top: 28px;
+    font-size: 0.95rem;
+    color: #7d4a5e;
+    font-weight: 500;
+}
+
+.signup-text a {
+    color: #b83268;
     font-weight: 700;
     text-decoration: none;
-  }
-  
-  .signup-text a:hover {
+}
+
+.signup-text a:hover {
     text-decoration: underline;
-  }
-  
-  /* Tablet */
-  @media (max-width: 900px) {
+    color: #9a2d58;
+}
+
+/* Tablet */
+@media (max-width: 900px) {
     .login-header h1 {
-      font-size: 48px;
+        font-size: 3rem;
     }
-  
+
     .login-header p {
-      font-size: 22px;
+        font-size: 1.1rem;
     }
-  
+
     .login-card {
-      padding: 40px 32px;
+        padding: 36px 28px 32px;
     }
-  
+
     .form-group label {
-      font-size: 24px;
+        font-size: 0.86rem;
     }
-  
+
     .form-group input {
-      font-size: 22px;
+        font-size: 0.95rem;
+        padding: 12px 18px;
     }
-  
+
     .sign-in-btn {
-      font-size: 26px;
-      padding: 18px;
+        font-size: 0.95rem;
+        padding: 14px 20px;
     }
-  
+
     .signup-text {
-      font-size: 20px;
+        font-size: 0.9rem;
     }
-  }
-  
-  /* Mobile */
-  @media (max-width: 600px) {
+}
+
+/* Mobile */
+@media (max-width: 600px) {
     .login-page {
-      padding: 24px 16px 40px;
+        padding: 24px 16px 40px;
     }
-  
+
     .icon-circle {
-      width: 90px;
-      height: 90px;
-      margin-bottom: 20px;
+        width: 96px;
+        height: 96px;
+        margin-bottom: 20px;
     }
-  
-    .heart-icon {
-      font-size: 48px;
-    }
-  
-    .login-header h1 {
-      font-size: 36px;
-      margin-bottom: 10px;
-    }
-  
-    .login-header p {
-      font-size: 18px;
-    }
-  
-    .login-card {
-      border-radius: 24px;
-      padding: 28px 20px 32px;
-    }
-  
-    .form-group {
-      margin-bottom: 36px;
-    }
-  
-    .form-group label {
-      font-size: 20px;
-      margin-bottom: 16px;
-    }
-  
-    .form-group input {
-      font-size: 18px;
-    }
-  
-    .sign-in-btn {
-      font-size: 22px;
-      padding: 16px;
-      border-radius: 14px;
-    }
-  
-    .signup-text {
-      font-size: 18px;
-      margin-top: 28px;
-    }
+
+  .heart-icon {
+    font-size: 48px;
   }
+
+    .login-header h1 {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+    }
+
+    .login-header p {
+        font-size: 1rem;
+    }
+
+    .login-card {
+        border-radius: 24px;
+        padding: 28px 20px 28px;
+    }
+
+    .form-group {
+        margin-bottom: 22px;
+    }
+
+    .form-group label {
+        font-size: 0.84rem;
+        margin-bottom: 8px;
+    }
+
+    .form-group input {
+        font-size: 0.9rem;
+        padding: 12px 16px;
+    }
+
+    .sign-in-btn {
+        font-size: 0.9rem;
+        padding: 14px 18px;
+        border-radius: 999px;
+    }
+
+    .signup-text {
+        font-size: 0.86rem;
+        margin-top: 24px;
+    }
+}

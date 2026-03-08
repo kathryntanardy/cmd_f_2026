@@ -4,8 +4,10 @@ import {
     AdvancedMarker,
     AdvancedMarkerAnchorPoint,
 } from "@vis.gl/react-google-maps";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import point from "../../assets/points.png";
+import { API_BASE, getToken } from "../../utils/auth";
 import "./MatchMap.css";
 
 type LatLng = {
@@ -18,69 +20,41 @@ type MatchPin = {
     name: string;
     age: number;
     bio: string;
-    interests: string[];
     image: string;
     position: LatLng;
     expiresAt: number;
+    timestamp: string;
 };
+
+type ApiMatch = {
+    targetUserId: number;
+    timestamp: string;
+    otherUserLocation: [number, number];
+};
+
+type ApiUser = {
+    user_id: number;
+    username: string;
+    age: number;
+    bio?: string;
+    profilePhoto?: string;
+};
+
+const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=500&q=80";
+
+const MATCH_WINDOW_MS = 30 * 60 * 1000;
+
+function getExpiresAtFromMatchTimestamp(timestamp: string): number {
+    return new Date(timestamp).getTime() + MATCH_WINDOW_MS;
+}
+
+/** Alias for getExpiresAtFromMatchTimestamp so legacy/cached references to getExpiresAt still work. */
+const getExpiresAt = getExpiresAtFromMatchTimestamp;
 
 const center: LatLng = {
     lat: 49.2827,
     lng: -123.1207,
 };
-
-const initialMatches: MatchPin[] = [
-    {
-        id: 1,
-        name: "Sophie",
-        age: 22,
-        bio: "Love matcha, sunset walks, and trying new cafés.",
-        interests: ["Matcha", "Cafés", "Photography"],
-        image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=500&q=80",
-        position: { lat: 49.2827, lng: -123.1207 },
-        expiresAt: Date.now() + 30 * 60 * 1000,
-    },
-    {
-        id: 2,
-        name: "Maya",
-        age: 24,
-        bio: "Gym, brunch, and spontaneous adventures.",
-        interests: ["Fitness", "Brunch", "Travel"],
-        image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=500&q=80",
-        position: { lat: 49.2767, lng: -123.13 },
-        expiresAt: Date.now() + 24 * 60 * 1000,
-    },
-    {
-        id: 3,
-        name: "Emma",
-        age: 21,
-        bio: "Big into music, night drives, and deep talks.",
-        interests: ["Music", "Night drives", "Books"],
-        image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=500&q=80",
-        position: { lat: 49.27, lng: -123.1 },
-        expiresAt: Date.now() + 18 * 60 * 1000,
-    },
-    {
-        id: 4,
-        name: "Ava",
-        age: 23,
-        bio: "Always down for dessert runs and beach days.",
-        interests: ["Desserts", "Beach", "Movies"],
-        image: "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&w=500&q=80",
-        position: { lat: 49.295, lng: -123.12 },
-        expiresAt: Date.now() + 12 * 60 * 1000,
-    },
-    {
-        id: 5,
-        name: "Chloe",
-        age: 25,
-        bio: "Dog lover, foodie, and always planning the next trip.",
-        interests: ["Dogs", "Food", "Travel"],
-        image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=500&q=80",
-        position: { lat: 49.25, lng: -123.11 },
-        expiresAt: Date.now() + 6 * 60 * 1000,
-    },
-];
 
 function formatTimeLeft(msLeft: number) {
     const totalSeconds = Math.max(0, Math.floor(msLeft / 1000));
@@ -91,19 +65,98 @@ function formatTimeLeft(msLeft: number) {
 }
 
 const MatchMap: React.FC = () => {
-    const [matches, setMatches] = useState<MatchPin[]>(initialMatches);
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [matches, setMatches] = useState<MatchPin[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
     const [now, setNow] = useState(Date.now());
     const [selectedMatch, setSelectedMatch] = useState<MatchPin | null>(null);
 
+    const fetchMatches = useCallback(() => {
+        const token = getToken();
+        if (!token) {
+            navigate("/", { replace: true });
+            return;
+        }
+
+        const headers = { Authorization: `Bearer ${token}` };
+
+        fetch(`${API_BASE}/api/users/me/matches`, { headers })
+            .then((res) => {
+                if (res.status === 401) {
+                    navigate("/", { replace: true });
+                    return null;
+                }
+                if (!res.ok) throw new Error("Failed to load matches");
+                return res.json();
+            })
+            .then(async (data: { matches?: ApiMatch[] }) => {
+                const apiMatches = data?.matches ?? [];
+                const pins: MatchPin[] = [];
+
+                for (const m of apiMatches) {
+                    if (!m.otherUserLocation || m.otherUserLocation.length < 2) continue;
+                    const userRes = await fetch(
+                        `${API_BASE}/api/users/${m.targetUserId}`,
+                        { headers }
+                    );
+                    if (!userRes.ok) continue;
+
+                    const user = (await userRes.json()) as ApiUser;
+                    const [lng, lat] = m.otherUserLocation;
+
+                    pins.push({
+                        id: m.targetUserId,
+                        name: user.username,
+                        age: user.age,
+                        bio: user.bio ?? "—",
+                        image: user.profilePhoto || DEFAULT_IMAGE,
+                        position: { lat, lng },
+                        expiresAt: getExpiresAt(m.timestamp),
+                        timestamp: m.timestamp,
+                    });
+                }
+
+                setMatches(pins);
+            })
+            .catch((err) => setError(err.message || "Failed to load matches"))
+            .finally(() => setLoading(false));
+    }, [navigate]);
+
     useEffect(() => {
+        fetchMatches();
+    }, [fetchMatches, location.pathname]);
+
+    useEffect(() => {
+        const token = getToken();
         const interval = setInterval(() => {
             const currentTime = Date.now();
             setNow(currentTime);
 
             setMatches((prev) => {
+                const expired = prev.filter(
+                    (match) => match.expiresAt <= currentTime
+                );
                 const filtered = prev.filter(
                     (match) => match.expiresAt > currentTime
                 );
+
+                if (token) {
+                    expired.forEach((match) => {
+                        fetch(`${API_BASE}/api/users/me/matches`, {
+                            method: "DELETE",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({
+                                targetUserId: match.id,
+                                timestamp: match.timestamp,
+                            }),
+                        }).catch(() => { });
+                    });
+                }
 
                 if (
                     selectedMatch &&
@@ -118,6 +171,26 @@ const MatchMap: React.FC = () => {
 
         return () => clearInterval(interval);
     }, [selectedMatch]);
+
+    if (loading) {
+        return (
+            <div className="matchmap-page">
+                <div className="matchmap-shell">
+                    <p className="matchmap-eyebrow">Loading…</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="matchmap-page">
+                <div className="matchmap-shell">
+                    <p className="matchmap-eyebrow" style={{ color: "red" }}>{error}</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
@@ -166,9 +239,8 @@ const MatchMap: React.FC = () => {
                                                 }
                                             >
                                                 <div
-                                                    className={`timer-bubble ${
-                                                        isUrgent ? "urgent" : ""
-                                                    }`}
+                                                    className={`timer-bubble ${isUrgent ? "urgent" : ""
+                                                        }`}
                                                 >
                                                     {formatTimeLeft(msLeft)}
                                                 </div>
@@ -192,49 +264,44 @@ const MatchMap: React.FC = () => {
                         className="match-popup-overlay"
                         onClick={() => setSelectedMatch(null)}
                     >
-<div
-  className="match-popup-pulse-wrap"
-  onClick={(e) => e.stopPropagation()}
->
-  <span className="match-popup-ring ring-1"></span>
-  <span className="match-popup-ring ring-2"></span>
-  <span className="match-popup-ring ring-3"></span>
+                        <div
+                            className="match-popup-pulse-wrap"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <span className="match-popup-ring ring-1"></span>
+                            <span className="match-popup-ring ring-2"></span>
+                            <span className="match-popup-ring ring-3"></span>
 
-  <div className="match-popup">
-    <img
-      src={selectedMatch.image}
-      alt={selectedMatch.name}
-      className="match-popup-image"
-    />
+                            <div className="match-popup">
+                                <div className="match-popup-image-wrap">
+                                    <img
+                                        src={selectedMatch.image}
+                                        alt={selectedMatch.name}
+                                        className="match-popup-image"
+                                    />
+                                    <div className="match-popup-image-gradient" aria-hidden />
+                                </div>
 
-    <div className="match-popup-content">
-      <h2 className="match-popup-name">
-        {selectedMatch.name}, {selectedMatch.age}
-      </h2>
+                                <div className="match-popup-content">
+                                    <h2 className="match-popup-name">
+                                        {selectedMatch.name}, {selectedMatch.age}
+                                    </h2>
 
-      <p className="match-popup-bio">{selectedMatch.bio}</p>
+                                    <p className="match-popup-bio">{selectedMatch.bio}</p>
 
-      <div className="match-popup-tags">
-        {selectedMatch.interests.map((interest) => (
-          <span key={interest} className="match-tag">
-            {interest}
-          </span>
-        ))}
-      </div>
+                                    <p className="match-popup-timer">
+                                        Time left: {formatTimeLeft(selectedMatch.expiresAt - now)}
+                                    </p>
 
-      <p className="match-popup-timer">
-        Time left: {formatTimeLeft(selectedMatch.expiresAt - now)}
-      </p>
-
-      <button
-        className="match-popup-button"
-        onClick={() => setSelectedMatch(null)}
-      >
-        Close
-      </button>
-    </div>
-  </div>
-</div>
+                                    <button
+                                        className="match-popup-button"
+                                        onClick={() => setSelectedMatch(null)}
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

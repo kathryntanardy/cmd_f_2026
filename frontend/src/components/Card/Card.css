@@ -9,6 +9,7 @@
     justify-content: center;
     align-items: center;
     background: #d9d1c5;
+    box-shadow: 0 28px 60px rgba(50, 20, 40, 0.28), 0 12px 32px rgba(0, 0, 0, 0.2);
 }
 
 /* IMAGE */
@@ -24,15 +25,17 @@
     object-fit: cover;
 }
 
-/* GRADIENT */
+/* GRADIENT – darker at bottom, fades to less dark toward top */
 .card__overlay {
     position: absolute;
     inset: 0;
-
-    background: linear-gradient(to top,
-            rgba(0, 0, 0, 0.9) 0%,
-            rgba(0, 0, 0, 0.45) 30%,
-            rgba(0, 0, 0, 0.05) 60%);
+    background: linear-gradient(
+        to top,
+        rgba(0, 0, 0, 0.75) 0%,
+        rgba(0, 0, 0, 0.4) 30%,
+        rgba(0, 0, 0, 0.08) 55%,
+        transparent 100%
+    );
 }
 
 /* INFO SECTION */
@@ -58,15 +61,6 @@
     margin: 0;
     font-size: 1.8rem;
     font-weight: 700;
-}
-
-/* LOCATION */
-.card__location {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-
-    font-size: 0.95rem;
 }
 
 /* DESCRIPTION */

@@ -1,3 +1,12 @@
+/* Recoleta Bold – used for Discover, Match Map, and Profile titles */
+@font-face {
+  font-family: "Recoleta";
+  font-style: normal;
+  font-weight: 700;
+  src: url("https://db.onlinewebfonts.com/t/f4d849075c9b4c0047fc56a828879854.woff2") format("woff2"),
+       url("https://db.onlinewebfonts.com/t/f4d849075c9b4c0047fc56a828879854.woff") format("woff");
+}
+
 :root {
 
   font-family: "Inter", system-ui, -apple-system, sans-serif;

@@ -1,42 +1,69 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "./Match.css";
 
+const DEFAULT_AVATAR =
+  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80";
+
+const MATCH_WINDOW_MS = 30 * 60 * 1000;
+
 type MatchPageProps = {
+  /** Current user's display name (left side) */
   leftName?: string;
+  /** Matched user's display name (right side) */
   rightName?: string;
+  /** Current user's profile photo URL (left side) */
   leftImage?: string;
+  /** Matched user's profile photo URL (right side) */
   rightImage?: string;
   initialSeconds?: number;
+  /** When true, timer never runs out – animation plays until user dismisses (only used when no matchTimestamp) */
+  noExpiry?: boolean;
+  /** Called when "Make Your Move" is clicked (e.g. go to match map) */
+  onMakeYourMove?: () => void;
+  /** Match creation time (ISO string) – when set, shows 30‑min countdown synced with backend/map */
+  matchTimestamp?: string;
 };
 
 const Match: React.FC<MatchPageProps> = ({
-  leftName = "Ava",
-  rightName = "Noah",
-  leftImage = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=800&auto=format&fit=crop",
-  rightImage = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=800&auto=format&fit=crop",
+  leftName = "You",
+  rightName = "Your match",
+  leftImage = DEFAULT_AVATAR,
+  rightImage = DEFAULT_AVATAR,
   initialSeconds = 30,
+  noExpiry = false,
+  onMakeYourMove,
+  matchTimestamp,
 }) => {
-  const [timeLeft, setTimeLeft] = useState(initialSeconds);
+  const [timeLeftSeconds, setTimeLeftSeconds] = useState(initialSeconds);
+  const [now, setNow] = useState(() => Date.now());
+
+  const useSyncTimer = typeof matchTimestamp === "string" && matchTimestamp.length > 0;
+  const matchStartMs = useSyncTimer ? new Date(matchTimestamp).getTime() : 0;
+  const expiresAtMs = matchStartMs + MATCH_WINDOW_MS;
+  const timeLeftMs = useSyncTimer ? Math.max(0, expiresAtMs - now) : timeLeftSeconds * 1000;
+  const timeLeftSecondsSync = Math.floor(timeLeftMs / 1000);
 
   useEffect(() => {
-    if (timeLeft <= 0) return;
-
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
-    }, 1000);
-
+    if (useSyncTimer) {
+      const interval = setInterval(() => setNow(Date.now()), 1000);
+      return () => clearInterval(interval);
+    }
+    if (noExpiry || timeLeftSeconds <= 0) return;
+    const interval = setInterval(() => setTimeLeftSeconds((prev) => prev - 1), 1000);
     return () => clearInterval(interval);
-  }, [timeLeft]);
+  }, [useSyncTimer, noExpiry, timeLeftSeconds]);
 
+  const displaySeconds = useSyncTimer ? timeLeftSecondsSync : timeLeftSeconds;
+  const totalSeconds = useSyncTimer ? MATCH_WINDOW_MS / 1000 : initialSeconds;
   const formattedTime = useMemo(() => {
-    const mins = Math.floor(timeLeft / 60);
-    const secs = timeLeft % 60;
+    const mins = Math.floor(displaySeconds / 60);
+    const secs = displaySeconds % 60;
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-  }, [timeLeft]);
+  }, [displaySeconds]);
 
-  const progress = (timeLeft / initialSeconds) * 100;
-  const urgent = timeLeft <= 10 && timeLeft > 0;
-  const expired = timeLeft <= 0;
+  const progress = totalSeconds > 0 ? (displaySeconds / totalSeconds) * 100 : 0;
+  const urgent = !noExpiry && displaySeconds <= 5 * 60 && displaySeconds > 0;
+  const expired = !noExpiry && displaySeconds <= 0;
 
   return (
     <div className={`match-page ${urgent ? "urgent" : ""} ${expired ? "expired" : ""}`}>
@@ -96,7 +123,12 @@ const Match: React.FC<MatchPageProps> = ({
               : "The connection disappears when the timer ends."}
           </p>
 
-          <button className="move-button" disabled={expired}>
+          <button
+            type="button"
+            className="move-button"
+            disabled={expired}
+            onClick={onMakeYourMove}
+          >
             {expired ? "Match Ended" : "Make Your Move"}
           </button>
         </div>
