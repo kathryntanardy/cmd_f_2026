@@ -1,7 +1,17 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import "./Login.css";
 
 const LoginPage: React.FC = () => {
+
+    const navigate = useNavigate();
+
+    const handleLogin = (e: React.FormEvent) => {
+        e.preventDefault();
+        // For demo purposes, we'll just navigate to the dashboard
+        navigate("/dashboard");
+    }
+
   return (
     <div className="login-page">
       <div className="login-header">
@@ -14,7 +24,7 @@ const LoginPage: React.FC = () => {
       </div>
 
       <div className="login-card">
-        <form className="login-form">
+        <form className="login-form" onSubmit={handleLogin}>
           <div className="form-group">
             <label htmlFor="email">Email</label>
             <input
