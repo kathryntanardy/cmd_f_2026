@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { setAuth } from "../../utils/auth";
 import "./Login.css";
 
 type LoginResponse = {
   message?: string;
+  token?: string;
   user?: {
     id: string;
+    user_id?: number;
     username: string;
     email: string;
     age?: number;
@@ -86,6 +89,13 @@ const LoginPage: React.FC = () => {
       }
 
       localStorage.setItem("user", JSON.stringify(data.user));
+      if (data.token) {
+        setAuth(data.token, {
+          user_id: data.user.user_id ?? 0,
+          username: data.user.username,
+          email: data.user.email,
+        });
+      }
       navigate("/dashboard", { replace: true });
     } catch (err) {
       console.error("Login error:", err);

@@ -1,6 +1,8 @@
+const crypto = require("crypto");
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
+const { tokenStore } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -42,19 +44,27 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    const token = crypto.randomBytes(24).toString("hex");
+    tokenStore.set(token, { _id: user._id, user_id: user.user_id });
+
+    const userPayload = {
+      id: user._id,
+      user_id: user.user_id,
+      username: user.username,
+      email: user.email,
+      age: user.age,
+      bio: user.bio,
+      profilePhoto: user.profilePhoto,
+      location: user.location,
+      preferences: user.preferences,
+      matchLock: user.matchLock,
+      "Hide Profile": user["Hide Profile"],
+    };
+
     return res.json({
       message: "Login successful",
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        age: user.age,
-        bio: user.bio,
-        profilePhoto: user.profilePhoto,
-        location: user.location,
-        preferences: user.preferences,
-        matchLock: user.matchLock,
-      },
+      token,
+      user: userPayload,
     });
   } catch (error) {
     console.error("Login error:", error);

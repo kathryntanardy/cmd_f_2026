@@ -49,9 +49,9 @@ const userSchema = new mongoose.Schema(
       default: [],
     },
 
-    "Hide Profile": {
+    hideProfile: {
       type: Boolean,
-      default: false,
+      default: true,
     },
 
     location: {
