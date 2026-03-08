@@ -83,6 +83,7 @@ async function getOthers(req, res) {
 
     const excludeQuery = {
       _id: { $ne: new mongoose.Types.ObjectId(currentUserId) },
+      hideProfile: { $ne: true },
     };
 
     let users;
