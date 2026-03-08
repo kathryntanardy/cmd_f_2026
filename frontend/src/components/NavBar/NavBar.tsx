@@ -6,7 +6,7 @@ import "./NavBar.css";
 const navItems = [
     { label: "Discover", path: "/", icon: <Heart size={34} strokeWidth={2.2} /> },
     { label: "Profile", path: "/profile", icon: <User size={34} strokeWidth={2.2} /> },
-    { label: "Your Matches", path: "/preferences", icon: <MapPinned size={34} strokeWidth={2.2} /> },
+    { label: "Your Match", path: "/match", icon: <MapPinned size={34} strokeWidth={2.2} /> },
 ] as const;
 
 const NavBar: React.FC = () => {
