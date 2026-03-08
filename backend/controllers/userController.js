@@ -246,4 +246,70 @@ async function deleteMatch(req, res) {
   }
 }
 
-module.exports = { getMe, updateMe, getUserById, getOthers, getMatches, addMatch, deleteMatch };
+async function addPing(req, res) {
+  try {
+    let { targetUserId } = req.body;
+
+    if (targetUserId == null) {
+      return res.status(400).json({ message: "targetUserId is required" });
+    }
+    targetUserId = typeof targetUserId === "string" ? parseInt(targetUserId, 10) : targetUserId;
+    if (Number.isNaN(targetUserId) || typeof targetUserId !== "number") {
+      return res.status(400).json({ message: "targetUserId must be a number" });
+    }
+
+    const now = new Date();
+    const pingEntry = {
+      targetUserId,
+      timestamp: now,
+    };
+
+    await User.findByIdAndUpdate(req.user._id, {
+      $push: { Ping: pingEntry },
+    });
+
+    res.status(201).json({
+      message: "Ping added",
+      ping: {
+        targetUserId,
+        timestamp: now.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("addPing error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+async function deleteExpiredPings(req, res) {
+  try {
+    const cutoff = new Date(Date.now() - 30 * 60 * 1000);
+
+    const result = await User.findByIdAndUpdate(
+      req.user._id,
+      { $pull: { Ping: { timestamp: { $lt: cutoff } } } },
+      { new: true }
+    );
+
+    if (!result) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ message: "Expired pings removed" });
+  } catch (error) {
+    console.error("deleteExpiredPings error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+module.exports = {
+  getMe,
+  updateMe,
+  getUserById,
+  getOthers,
+  getMatches,
+  addMatch,
+  deleteMatch,
+  addPing,
+  deleteExpiredPings,
+};

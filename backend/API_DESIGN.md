@@ -49,6 +49,8 @@ So: "I (current user) matched with user X at time T; they were at location L."
 | `GET` | `/api/users/me/matches` | Get **current user's** matches for MatchMap. Returns `targetUserId`, `timestamp`, `otherUserLocation` for each match. |
 | `POST` | `/api/users/me/matches` | Add a **match** when user swipes right. Stores target user id, timestamp (now), and that user's location. |
 | `DELETE` | `/api/users/me/matches` | Remove a **match** when timer expires. Body: `{ targetUserId, timestamp }` to identify the entry. |
+| `POST` | `/api/users/me/pings` | Add a **ping** when user swipes left (passed). Stores `targetUserId` and timestamp. |
+| `DELETE` | `/api/users/me/pings/expired` | Remove **ping** entries older than 30 minutes (optional; backend runs automatic cleanup every 30 min). |
 
 ---
 ## Request/response shapes
@@ -254,6 +256,50 @@ So: "I (current user) matched with user X at time T; they were at location L."
 
 ---
 
+### `POST /api/users/me/pings`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Purpose:** Records when the current user swipes left (passed) on another user. Adds `targetUserId` and timestamp to the Ping array.
+
+**Request body:**
+
+```json
+{ "targetUserId": 1235 }
+```
+
+**Response (201):**
+
+```json
+{
+  "message": "Ping added",
+  "ping": {
+    "targetUserId": 1235,
+    "timestamp": "2025-03-07T14:30:00.000Z"
+  }
+}
+```
+
+**Errors:** 400 if `targetUserId` missing or invalid, 401 if not logged in.
+
+---
+
+### `DELETE /api/users/me/pings/expired`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Purpose:** Removes all Ping entries older than 30 minutes. The backend also runs automatic cleanup every 30 minutes for all users.
+
+**Response (200):**
+
+```json
+{ "message": "Expired pings removed" }
+```
+
+**Errors:** 401 if not logged in.
+
+---
+
 ## Backend structure (suggested)
 
 ```
@@ -262,10 +308,10 @@ backend/
     auth.js          # Verify JWT, set req.user (e.g. { user_id, _id })
   routes/
     authRoutes.js    # POST /signup, POST /login
-    userRoutes.js    # GET /me, PATCH /me, GET /others, GET /me/matches, POST /me/matches, DELETE /me/matches, GET /:userId
+    userRoutes.js    # GET /me, PATCH /me, GET /others, GET /me/matches, POST /me/matches, DELETE /me/matches, POST /me/pings, DELETE /me/pings/expired, GET /:userId
   controllers/
     authController.js  # signup, login
-    userController.js  # getMe, updateMe, getUserById, getOthers, getMatches, addMatch, deleteMatch
+    userController.js  # getMe, updateMe, getUserById, getOthers, getMatches, addMatch, deleteMatch, addPing, deleteExpiredPings
   server.js            # app.use("/api/auth", authRoutes); app.use("/api/users", authMiddleware, userRoutes);
 ```
 
@@ -280,7 +326,7 @@ backend/
 2. **All API calls** for “me” or “my matches” → send `Authorization: Bearer <token>`.
 3. **Profile page** → `GET /api/users/me` → set state with that user → render (map `username` → name, `location` or separate city if you add it, etc.).
 4. **Edit Profile** → load same `GET /api/users/me`; on Save → `PATCH /api/users/me` with changed fields.
-5. **Dashboard / Discover** → `GET /api/users/others` to list other users for swipe cards. On swipe right (match) → `POST /api/users/me/matches` with `{ targetUserId }` to store the match (target user id, timestamp, other user's location).
+5. **Dashboard / Discover** → `GET /api/users/others` to list users. On swipe right → `POST /api/users/me/matches`. On swipe left → `POST /api/users/me/pings` with `{ targetUserId }`. (Expired pings are cleaned automatically by the backend every 30 min.)
 6. **MatchMap** → `GET /api/users/me/matches` to retrieve matches; fetch user info via `GET /api/users/:userId` for popup; when timer expires, `DELETE /api/users/me/matches` with `{ targetUserId, timestamp }` to remove the entry.
 
 This gives you: login → one "current user" → use that user's data for Profile and Edit Profile, and Matches for swipe-right actions and MatchMap.

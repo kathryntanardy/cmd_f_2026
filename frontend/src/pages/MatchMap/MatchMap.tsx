@@ -43,8 +43,8 @@ type ApiUser = {
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=500&q=80";
 
 function getExpiresAt(): number {
-    // return Date.now() + 30 * 60 * 1000;
-    return Date.now() + 60 * 1000;
+    return Date.now() + 30 * 60 * 1000;
+    // return Date.now() + 60 * 1000;
 }
 
 const center: LatLng = {
