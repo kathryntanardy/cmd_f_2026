@@ -1,0 +1,437 @@
+[
+  {
+    "username": "melvika",
+    "user_id": 1234,
+    "email": "melvika@example.com",
+    "passwordHash": "$2b$10$fakehashvalue000000000000000000000000000000001",
+    "profilePhoto": "https://randomuser.me/api/portraits/women/1.jpg",
+    "age": 22,
+    "bio": "Hi, I love quiet cafes and long walks.",
+    "Ping": [
+      [1250, "2026-03-07T09:05:00.000Z", "Vancouver Public Library"],
+      [1261, "2026-03-07T11:32:00.000Z", "Gastown Steam Clock"],
+      [1278, "2026-03-07T14:47:00.000Z", "Robson Square"]
+    ],
+    "Hide Profile": false,
+    "location": {
+      "type": "Point",
+      "coordinates": [-123.1207, 49.2827]
+    },
+    "preferences": {
+      "genderPreference": ["male"],
+      "ageMin": 21,
+      "ageMax": 27,
+      "maxDistanceMeters": 50
+    },
+    "matchLock": {
+      "isLocked": false,
+      "lockedUntil": null
+    }
+  },
+  {
+    "username": "ethanlee",
+    "user_id": 1235,
+    "email": "ethanlee@example.com",
+    "passwordHash": "$2b$10$fakehashvalue000000000000000000000000000000002",
+    "profilePhoto": "https://randomuser.me/api/portraits/men/2.jpg",
+    "age": 24,
+    "bio": "Coffee first, conversations second.",
+    "Ping": [
+      [1234, "2026-03-07T08:20:00.000Z", "Yaletown Roundhouse"],
+      [1248, "2026-03-07T12:10:00.000Z", "Science World"],
+      [1260, "2026-03-07T16:25:00.000Z", "Olympic Village"]
+    ],
+    "Hide Profile": false,
+    "location": {
+      "type": "Point",
+      "coordinates": [-123.1189, 49.2804]
+    },
+    "preferences": {
+      "genderPreference": ["female"],
+      "ageMin": 21,
+      "ageMax": 29,
+      "maxDistanceMeters": 75
+    },
+    "matchLock": {
+      "isLocked": false,
+      "lockedUntil": null
+    }
+  },
+  {
+    "username": "natalieq",
+    "user_id": 1236,
+    "email": "natalieq@example.com",
+    "passwordHash": "$2b$10$fakehashvalue000000000000000000000000000000003",
+    "profilePhoto": "https://randomuser.me/api/portraits/women/3.jpg",
+    "age": 23,
+    "bio": "Bookstores, matcha, and rainy days.",
+    "Ping": [
+      [1242, "2026-03-07T10:05:00.000Z", "Kitsilano Beach"],
+      [1235, "2026-03-07T13:40:00.000Z", "Granville Island"],
+      [1272, "2026-03-07T18:00:00.000Z", "Jericho Beach"]
+    ],
+    "Hide Profile": false,
+    "location": {
+      "type": "Point",
+      "coordinates": [-123.1402, 49.2722]
+    },
+    "preferences": {
+      "genderPreference": ["male", "female"],
+      "ageMin": 22,
+      "ageMax": 30,
+      "maxDistanceMeters": 120
+    },
+    "matchLock": {
+      "isLocked": false,
+      "lockedUntil": null
+    }
+  },
+  {
+    "username": "adrianm",
+    "user_id": 1237,
+    "email": "adrianm@example.com",
+    "passwordHash": "$2b$10$fakehashvalue000000000000000000000000000000004",
+    "profilePhoto": "https://randomuser.me/api/portraits/men/4.jpg",
+    "age": 25,
+    "bio": "Shy at first, funny after one latte.",
+    "Ping": [
+      [1238, "2026-03-07T09:30:00.000Z", "Commercial Drive"],
+      [1244, "2026-03-07T15:15:00.000Z", "Main Street"],
+      [1269, "2026-03-07T20:05:00.000Z", "Queen Elizabeth Park"]
+    ],
+    "Hide Profile": false,
+    "location": {
+      "type": "Point",
+      "coordinates": [-123.1016, 49.2463]
+    },
+    "preferences": {
+      "genderPreference": ["female"],
+      "ageMin": 22,
+      "ageMax": 31,
+      "maxDistanceMeters": 90
+    },
+    "matchLock": {
+      "isLocked": false,
+      "lockedUntil": null
+    }
+  },
+  {
+    "username": "sophialin",
+    "user_id": 1238,
+    "email": "sophialin@example.com",
+    "passwordHash": "$2b$10$fakehashvalue000000000000000000000000000000005",
+    "profilePhoto": "https://randomuser.me/api/portraits/women/5.jpg",
+    "age": 21,
+    "bio": "Here to meet kind people nearby.",
+    "Ping": [
+      [1237, "2026-03-07T08:55:00.000Z", "Metrotown Station"],
+      [1254, "2026-03-07T12:45:00.000Z", "Burnaby Lake Park"],
+      [1266, "2026-03-07T19:35:00.000Z", "Brentwood Town Centre"]
+    ],
+    "Hide Profile": false,
+    "location": {
+      "type": "Point",
+      "coordinates": [-122.9819, 49.2303]
+    },
+    "preferences": {
+      "genderPreference": ["male"],
+      "ageMin": 21,
+      "ageMax": 26,
+      "maxDistanceMeters": 60
+    },
+    "matchLock": {
+      "isLocked": false,
+      "lockedUntil": null
+    }
+  },
+  {
+    "username": "jasonwu",
+    "user_id": 1239,
+    "email": "jasonwu@example.com",
+    "passwordHash": "$2b$10$fakehashvalue000000000000000000000000000000006",
+    "profilePhoto": "https://randomuser.me/api/portraits/men/6.jpg",
+    "age": 23,
+    "bio": "Always down for a spontaneous boba run.",
+    "Ping": [
+      [1240, "2026-03-07T07:50:00.000Z", "Richmond Centre"],
+      [1258, "2026-03-07T14:20:00.000Z", "Steveston Village"],
+      [1270, "2026-03-07T17:10:00.000Z", "Lansdowne Mall"]
+    ],
+    "Hide Profile": false,
+    "location": {
+      "type": "Point",
+      "coordinates": [-123.1215, 49.1666]
+    },
+    "preferences": {
+      "genderPreference": ["female"],
+      "ageMin": 20,
+      "ageMax": 28,
+      "maxDistanceMeters": 100
+    },
+    "matchLock": {
+      "isLocked": false,
+      "lockedUntil": null
+    }
+  },
+  {
+    "username": "emilychen",
+    "user_id": 1240,
+    "email": "emilychen@example.com",
+    "passwordHash": "$2b$10$fakehashvalue000000000000000000000000000000007",
+    "profilePhoto": "https://randomuser.me/api/portraits/women/7.jpg",
+    "age": 24,
+    "bio": "Looking for someone who likes museums.",
+    "Ping": [
+      [1239, "2026-03-07T09:15:00.000Z", "Richmond Oval"],
+      [1249, "2026-03-07T13:05:00.000Z", "Aberdeen Centre"],
+      [1262, "2026-03-07T18:45:00.000Z", "Minoru Park"]
+    ],
+    "Hide Profile": false,
+    "location": {
+      "type": "Point",
+      "coordinates": [-123.1361, 49.1704]
+    },
+    "preferences": {
+      "genderPreference": ["male"],
+      "ageMin": 23,
+      "ageMax": 32,
+      "maxDistanceMeters": 110
+    },
+    "matchLock": {
+      "isLocked": false,
+      "lockedUntil": null
+    }
+  },
+  {
+    "username": "liampark",
+    "user_id": 1241,
+    "email": "liampark@example.com",
+    "passwordHash": "$2b$10$fakehashvalue000000000000000000000000000000008",
+    "profilePhoto": "https://randomuser.me/api/portraits/men/8.jpg",
+    "age": 26,
+    "bio": "Gym, hikes, and indie playlists.",
+    "Ping": [
+      [1246, "2026-03-07T10:40:00.000Z", "Lynn Canyon Park"],
+      [1253, "2026-03-07T15:00:00.000Z", "Lonsdale Quay"],
+      [1275, "2026-03-07T21:20:00.000Z", "Capilano Suspension Bridge"]
+    ],
+    "Hide Profile": false,
+    "location": {
+      "type": "Point",
+      "coordinates": [-123.0796, 49.3169]
+    },
+    "preferences": {
+      "genderPreference": ["female"],
+      "ageMin": 22,
+      "ageMax": 31,
+      "maxDistanceMeters": 130
+    },
+    "matchLock": {
+      "isLocked": false,
+      "lockedUntil": null
+    }
+  },
+  {
+    "username": "zoecarter",
+    "user_id": 1242,
+    "email": "zoecarter@example.com",
+    "passwordHash": "$2b$10$fakehashvalue000000000000000000000000000000009",
+    "profilePhoto": "https://randomuser.me/api/portraits/women/9.jpg",
+    "age": 27,
+    "bio": "Sunset chaser and sushi lover.",
+    "Ping": [
+      [1236, "2026-03-07T08:10:00.000Z", "Spanish Banks"],
+      [1252, "2026-03-07T12:30:00.000Z", "UBC Rose Garden"],
+      [1267, "2026-03-07T17:55:00.000Z", "Wreck Beach"]
+    ],
+    "Hide Profile": false,
+    "location": {
+      "type": "Point",
+      "coordinates": [-123.246, 49.2606]
+    },
+    "preferences": {
+      "genderPreference": ["male", "female"],
+      "ageMin": 25,
+      "ageMax": 35,
+      "maxDistanceMeters": 150
+    },
+    "matchLock": {
+      "isLocked": false,
+      "lockedUntil": null
+    }
+  },
+  {
+    "username": "noahkim",
+    "user_id": 1243,
+    "email": "noahkim@example.com",
+    "passwordHash": "$2b$10$fakehashvalue000000000000000000000000000000010",
+    "profilePhoto": "https://randomuser.me/api/portraits/men/10.jpg",
+    "age": 22,
+    "bio": "If you like ramen, we’ll get along.",
+    "Ping": [
+      [1247, "2026-03-07T09:45:00.000Z", "Coquitlam Centre"],
+      [1259, "2026-03-07T14:55:00.000Z", "Lafarge Lake"],
+      [1271, "2026-03-07T19:05:00.000Z", "Rocky Point Park"]
+    ],
+    "Hide Profile": false,
+    "location": {
+      "type": "Point",
+      "coordinates": [-122.8453, 49.285]
+    },
+    "preferences": {
+      "genderPreference": ["female"],
+      "ageMin": 20,
+      "ageMax": 27,
+      "maxDistanceMeters": 80
+    },
+    "matchLock": {
+      "isLocked": false,
+      "lockedUntil": null
+    }
+  },
+  {
+    "username": "avafern",
+    "user_id": 1244,
+    "email": "avafern@example.com",
+    "passwordHash": "$2b$10$fakehashvalue000000000000000000000000000000011",
+    "profilePhoto": "https://randomuser.me/api/portraits/women/11.jpg",
+    "age": 28,
+    "bio": "Painter by weekend, product manager by weekday.",
+    "Ping": [
+      [1237, "2026-03-07T11:00:00.000Z", "Mount Pleasant"],
+      [1251, "2026-03-07T16:40:00.000Z", "False Creek"],
+      [1265, "2026-03-07T20:30:00.000Z", "Granville Street"]
+    ],
+    "Hide Profile": false,
+    "location": {
+      "type": "Point",
+      "coordinates": [-123.1082, 49.2626]
+    },
+    "preferences": {
+      "genderPreference": ["male"],
+      "ageMin": 26,
+      "ageMax": 34,
+      "maxDistanceMeters": 95
+    },
+    "matchLock": {
+      "isLocked": false,
+      "lockedUntil": null
+    }
+  },
+  {
+    "username": "masonrei",
+    "user_id": 1245,
+    "email": "masonrei@example.com",
+    "passwordHash": "$2b$10$fakehashvalue000000000000000000000000000000012",
+    "profilePhoto": "https://randomuser.me/api/portraits/men/12.jpg",
+    "age": 29,
+    "bio": "Night owl, jazz fan, ramen expert.",
+    "Ping": [
+      [1248, "2026-03-07T07:35:00.000Z", "Richmond Night Market"],
+      [1263, "2026-03-07T13:25:00.000Z", "Bridgeport Station"],
+      [1277, "2026-03-07T22:10:00.000Z", "Aberdeen Food Court"]
+    ],
+    "Hide Profile": false,
+    "location": {
+      "type": "Point",
+      "coordinates": [-123.135, 49.1948]
+    },
+    "preferences": {
+      "genderPreference": ["female"],
+      "ageMin": 24,
+      "ageMax": 33,
+      "maxDistanceMeters": 140
+    },
+    "matchLock": {
+      "isLocked": false,
+      "lockedUntil": null
+    }
+  },
+  {
+    "username": "islarose",
+    "user_id": 1246,
+    "email": "islarose@example.com",
+    "passwordHash": "$2b$10$fakehashvalue000000000000000000000000000000013",
+    "profilePhoto": "https://randomuser.me/api/portraits/women/13.jpg",
+    "age": 26,
+    "bio": "Trail runner and thrift store hunter.",
+    "Ping": [
+      [1241, "2026-03-07T08:50:00.000Z", "Deep Cove"],
+      [1256, "2026-03-07T12:55:00.000Z", "Cates Park"],
+      [1268, "2026-03-07T18:35:00.000Z", "Lynn Headwaters"]
+    ],
+    "Hide Profile": false,
+    "location": {
+      "type": "Point",
+      "coordinates": [-122.9494, 49.3262]
+    },
+    "preferences": {
+      "genderPreference": ["male", "female"],
+      "ageMin": 24,
+      "ageMax": 32,
+      "maxDistanceMeters": 125
+    },
+    "matchLock": {
+      "isLocked": false,
+      "lockedUntil": null
+    }
+  },
+  {
+    "username": "calebstone",
+    "user_id": 1247,
+    "email": "calebstone@example.com",
+    "passwordHash": "$2b$10$fakehashvalue000000000000000000000000000000014",
+    "profilePhoto": "https://randomuser.me/api/portraits/men/14.jpg",
+    "age": 24,
+    "bio": "Techie with way too many cafe recommendations.",
+    "Ping": [
+      [1243, "2026-03-07T10:15:00.000Z", "Burquitlam Station"],
+      [1257, "2026-03-07T15:35:00.000Z", "Como Lake Park"],
+      [1273, "2026-03-07T20:50:00.000Z", "Port Moody Inlet"]
+    ],
+    "Hide Profile": false,
+    "location": {
+      "type": "Point",
+      "coordinates": [-122.8219, 49.2622]
+    },
+    "preferences": {
+      "genderPreference": ["female"],
+      "ageMin": 21,
+      "ageMax": 30,
+      "maxDistanceMeters": 100
+    },
+    "matchLock": {
+      "isLocked": false,
+      "lockedUntil": null
+    }
+  },
+  {
+    "username": "miaharper",
+    "user_id": 1248,
+    "email": "miaharper@example.com",
+    "passwordHash": "$2b$10$fakehashvalue000000000000000000000000000000015",
+    "profilePhoto": "https://randomuser.me/api/portraits/women/15.jpg",
+    "age": 25,
+    "bio": "I rate cafes by playlist quality.",
+    "Ping": [
+      [1234, "2026-03-07T09:25:00.000Z", "Canada Place"],
+      [1245, "2026-03-07T14:10:00.000Z", "Coal Harbour"],
+      [1274, "2026-03-07T19:40:00.000Z", "English Bay"]
+    ],
+    "Hide Profile": false,
+    "location": {
+      "type": "Point",
+      "coordinates": [-123.1162, 49.2897]
+    },
+    "preferences": {
+      "genderPreference": ["male"],
+      "ageMin": 23,
+      "ageMax": 31,
+      "maxDistanceMeters": 85
+    },
+    "matchLock": {
+      "isLocked": false,
+      "lockedUntil": null
+    }
+  }
+]
