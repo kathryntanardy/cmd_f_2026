@@ -1,12 +1,13 @@
-import { Routes, Route, Outlet } from 'react-router-dom'
-import './App.css'
-import NavBar from './components/NavBar/NavBar'
-import Dashboard from './pages/Dashboard/Dashboard'
-import UserProfilePage from './pages/Profile/UserProfilePage'
+import { Routes, Route, Outlet, Navigate } from "react-router-dom";
+import "./App.css";
+
+import NavBar from "./components/NavBar/NavBar";
+
+import LoginPage from "./pages/Login/Login"; 
+import Dashboard from "./pages/Dashboard/Dashboard";
+import UserProfilePage from "./pages/Profile/UserProfilePage";
 import MatchMap from './pages/MatchMap/MatchMap'
 import EditProfilePage from "./pages/EditProfile/EditProfilePage";
-import Login from "./pages/Login/Login";
-
 
 function AppLayout() {
   return (
@@ -14,23 +15,29 @@ function AppLayout() {
       <Outlet />
       <NavBar />
     </>
-  )
+  );
 }
 
 function App() {
   return (
     <Routes>
 
-    <Route path="/" element={<Login />} />
+      {/* Login page FIRST */}
+      <Route path="/login" element={<LoginPage />} />
 
+      {/* Redirect root to login */}
+      <Route path="/" element={<Navigate to="/login" replace />} />
+
+      {/* Main app pages */}
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile" element={<UserProfilePage />} />
         <Route path="/edit-profile" element={<EditProfilePage />} />
         <Route path="/match" element={<MatchMap />} />
       </Route>
+
     </Routes>
-  )
+  );
 }
 
-export default App
+export default App;
