@@ -45,6 +45,7 @@ So: “I (current user) pinged user X at time T from location L.”
 |--------|------|--------|
 | `GET` | `/api/users/me` | Get **current user** profile for My Profile + Edit Profile (exclude `passwordHash`). |
 | `PATCH` | `/api/users/me` | Update **current user** (Edit Profile save). Body: fields to update (e.g. `username`, `age`, `bio`, `profilePhoto`, `location`, `preferences`, `Hide Profile`). |
+| `GET` | `/api/users/others` | Get **other users** (excluding current user) for Dashboard/Discover. Returns safe profile fields and distance when current user has location. |
 
 ### Pings (all require auth)
 
@@ -118,6 +119,38 @@ So: “I (current user) pinged user X at time T from location L.”
 
 ---
 
+### `GET /api/users/others`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Purpose:** Returns all users except the current user, for the Dashboard/Discover feed. Excludes sensitive fields (`passwordHash`, `email`, `Ping`, `matchLock`). When the current user has a location, results are sorted by distance using MongoDB `$geoNear`.
+
+**Response (200):**
+
+```json
+{
+  "users": [
+    {
+      "_id": "...",
+      "user_id": 1235,
+      "username": "johndoe123",
+      "age": 28,
+      "bio": "Artist and dog lover.",
+      "profilePhoto": "https://...",
+      "preferences": { "genderPreference": ["female", "non-binary"] },
+      "distanceMeters": 2500
+    }
+  ]
+}
+```
+
+- `distanceMeters`: Distance from current user in meters. `null` if current user has no location.
+- Excludes: `passwordHash`, `email`, `Ping`, `matchLock`, `createdAt`, `updatedAt`.
+
+**Errors:** 401 if not logged in.
+
+---
+
 ### `GET /api/users/me/pings`
 
 **Headers:** `Authorization: Bearer <token>`
@@ -184,10 +217,10 @@ backend/
     auth.js          # Verify JWT, set req.user (e.g. { user_id, _id })
   routes/
     authRoutes.js    # POST /signup, POST /login
-    userRoutes.js    # GET /me, PATCH /me, GET /me/pings, POST /me/pings
+    userRoutes.js    # GET /me, PATCH /me, GET /others, GET /me/pings, POST /me/pings
   controllers/
     authController.js  # signup, login
-    userController.js  # getMe, updateMe, getMyPings, addPing
+    userController.js  # getMe, updateMe, getOthers, getMyPings, addPing
   server.js            # app.use("/api/auth", authRoutes); app.use("/api/users", authMiddleware, userRoutes);
 ```
 
@@ -205,6 +238,7 @@ backend/
 2. **All API calls** for “me” or “my pings” → send `Authorization: Bearer <token>`.
 3. **Profile page** → `GET /api/users/me` → set state with that user → render (map `username` → name, `location` or separate city if you add it, etc.).
 4. **Edit Profile** → load same `GET /api/users/me`; on Save → `PATCH /api/users/me` with changed fields.
-5. **Match map / pings** → `GET /api/users/me/pings` to list; when user pings someone → `POST /api/users/me/pings` with `{ targetUserId }`.
+5. **Dashboard / Discover** → `GET /api/users/others` to list other users for swipe cards (username, age, bio, profilePhoto, preferences, distance).
+6. **Match map / pings** → `GET /api/users/me/pings` to list; when user pings someone → `POST /api/users/me/pings` with `{ targetUserId }`.
 
 This gives you: login → one “current user” → use that user’s data for Profile and Edit Profile, and a clear GET/POST API for Pings (with location and time stored on the User model as you described).
