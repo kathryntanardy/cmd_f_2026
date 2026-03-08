@@ -1,5 +1,18 @@
 const mongoose = require("mongoose");
 const User = require("../models/User");
+const { DEFAULT_MAX_DISTANCE_METERS, MATCH_EXPIRY_MINUTES } = require("../constants");
+
+const MATCH_EXPIRY_MS = MATCH_EXPIRY_MINUTES * 60 * 1000;
+
+function isMatchExpired(match) {
+  const ts = match.timestamp ? new Date(match.timestamp).getTime() : 0;
+  return ts && Date.now() - ts > MATCH_EXPIRY_MS;
+}
+
+function filterUnexpiredMatches(matches) {
+  if (!Array.isArray(matches)) return [];
+  return matches.filter((m) => !isMatchExpired(m));
+}
 
 async function getMe(req, res) {
   try {
@@ -11,7 +24,25 @@ async function getMe(req, res) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const payload = { ...user, "hideProfile": user.hideProfile ?? false };
+    const unexpiredMatches = filterUnexpiredMatches(user.Matches);
+
+    const cutoff = new Date(Date.now() - MATCH_EXPIRY_MS);
+    await User.findByIdAndUpdate(req.user._id, {
+      $pull: {
+        Matches: {
+          $or: [
+            { timestamp: { $lt: cutoff } },
+            { timestamp: { $exists: false } },
+          ],
+        },
+      },
+    });
+
+    const payload = {
+      ...user,
+      Matches: unexpiredMatches,
+      hideProfile: user.hideProfile ?? false,
+    };
     res.json(payload);
   } catch (error) {
     console.error("getMe error:", error);
@@ -23,19 +54,21 @@ async function updateMe(req, res) {
   try {
     const updates = {};
     const allowed = ["username", "age", "bio", "profilePhoto", "location", "preferences"];
+
     for (const key of allowed) {
       if (req.body[key] !== undefined) {
         updates[key] = req.body[key];
       }
     }
-    if (req.body["hideProfile"] !== undefined) {
-      updates.hideProfile = req.body["hideProfile"];
+
+    if (req.body.hideProfile !== undefined) {
+      updates.hideProfile = req.body.hideProfile;
     }
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { $set: updates },
-      { new: true }
+      { returnDocument: "after" }
     )
       .select("-passwordHash")
       .lean();
@@ -51,19 +84,92 @@ async function updateMe(req, res) {
   }
 }
 
+async function updateLocation(req, res) {
+  try {
+    let coordinates = req.body.coordinates;
+    let longitude = req.body.longitude;
+    let latitude = req.body.latitude;
+
+    if (coordinates && Array.isArray(coordinates) && coordinates.length === 2) {
+      const parsedCoordinates = coordinates.map((value) => Number(value));
+
+      if (parsedCoordinates.some(Number.isNaN)) {
+        return res.status(400).json({ message: "Invalid coordinates" });
+      }
+
+      coordinates = parsedCoordinates;
+    } else {
+      longitude = Number(longitude);
+      latitude = Number(latitude);
+
+      if (Number.isNaN(longitude) || Number.isNaN(latitude)) {
+        return res.status(400).json({
+          message: "Provide coordinates [longitude, latitude] or longitude and latitude",
+        });
+      }
+
+      coordinates = [longitude, latitude];
+    }
+
+    const [lng, lat] = coordinates;
+
+    if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+      return res.status(400).json({ message: "Coordinates out of range" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: {
+          location: {
+            type: "Point",
+            coordinates: [lng, lat],
+          },
+        },
+      },
+      { returnDocument: "after" }
+    )
+      .select("-passwordHash")
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({
+      message: "Location updated",
+      location: user.location,
+    });
+  } catch (error) {
+    console.error("updateLocation error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
 async function getOthers(req, res) {
   try {
     const currentUserId = req.user._id;
 
     const currentUser = await User.findById(currentUserId)
-      .select("location")
+      .select("location preferences.maxDistanceMeters Matches")
       .lean();
+
+    const myMaxMeters =
+      currentUser?.preferences?.maxDistanceMeters ?? DEFAULT_MAX_DISTANCE_METERS;
+
+    const unexpiredMatches = filterUnexpiredMatches(currentUser?.Matches ?? []);
+    const matchedUserIds = unexpiredMatches
+      .map((m) => m.user_id ?? m.targetUserId)
+      .filter((id) => id != null);
 
     const excludeQuery = {
       _id: { $ne: new mongoose.Types.ObjectId(currentUserId) },
+      hideProfile: { $ne: true },
+      user_id: { $nin: matchedUserIds },
     };
 
     let users;
+
     if (currentUser?.location?.coordinates?.length === 2) {
       users = await User.aggregate([
         {
@@ -71,26 +177,36 @@ async function getOthers(req, res) {
             near: { type: "Point", coordinates: currentUser.location.coordinates },
             distanceField: "distanceMeters",
             spherical: true,
-            maxDistance: 100000000,
+            maxDistance: Math.min(myMaxMeters, 500000),
           },
         },
         { $match: excludeQuery },
+        {
+          $addFields: {
+            withinTheirMax: {
+              $lte: [
+                "$distanceMeters",
+                { $ifNull: ["$preferences.maxDistanceMeters", DEFAULT_MAX_DISTANCE_METERS] },
+              ],
+            },
+          },
+        },
+        { $match: { withinTheirMax: true } },
         {
           $project: {
             passwordHash: 0,
             email: 0,
             Matches: 0,
+            Likes: 0,
             matchLock: 0,
             createdAt: 0,
             updatedAt: 0,
+            withinTheirMax: 0,
           },
         },
       ]);
     } else {
-      users = await User.find(excludeQuery)
-        .select("-passwordHash -email -Matches -matchLock -createdAt -updatedAt")
-        .lean();
-      users = users.map((u) => ({ ...u, distanceMeters: null }));
+      users = [];
     }
 
     const payload = users.map((u) => ({
@@ -104,11 +220,27 @@ async function getOthers(req, res) {
       distanceMeters: u.distanceMeters ?? null,
     }));
 
-    res.json({ users: payload });
+    const hasLocation = currentUser?.location?.coordinates?.length === 2;
+
+    res.json({
+      users: payload,
+      ...(hasLocation ? {} : { locationRequired: true }),
+    });
   } catch (error) {
     console.error("getOthers error:", error);
     res.status(500).json({ message: "Server error" });
   }
+}
+
+function formatMatchTime(date) {
+  return date.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 async function addMatch(req, res) {
@@ -118,44 +250,63 @@ async function addMatch(req, res) {
     if (targetUserId == null) {
       return res.status(400).json({ message: "targetUserId is required" });
     }
-    targetUserId = typeof targetUserId === "string" ? parseInt(targetUserId, 10) : targetUserId;
+
+    targetUserId =
+      typeof targetUserId === "string" ? parseInt(targetUserId, 10) : targetUserId;
+
     if (Number.isNaN(targetUserId) || typeof targetUserId !== "number") {
       return res.status(400).json({ message: "targetUserId must be a number" });
     }
 
+    const myUserId = req.user.user_id;
+
+    if (myUserId == null) {
+      return res.status(400).json({ message: "Current user has no user_id" });
+    }
+
     const targetUser = await User.findOne({ user_id: targetUserId })
-      .select("location")
+      .select("_id location Likes")
       .lean();
 
     if (!targetUser) {
       return res.status(404).json({ message: "Target user not found" });
     }
 
-    const otherUserLocation = targetUser.location?.coordinates;
-    if (!otherUserLocation || otherUserLocation.length !== 2) {
-      return res.status(400).json({
-        message: "Target user has no location",
+    const targetLikes = targetUser.Likes || [];
+    const isMutual = targetLikes.includes(myUserId);
+
+    await User.findByIdAndUpdate(req.user._id, {
+      $addToSet: { Likes: targetUserId },
+    });
+
+    if (isMutual) {
+      const now = new Date();
+      const timeFormatted = formatMatchTime(now);
+      const myMatchEntry = { user_id: targetUserId, timeFormatted, timestamp: now };
+      const theirMatchEntry = { user_id: myUserId, timeFormatted, timestamp: now };
+
+      await User.findByIdAndUpdate(req.user._id, {
+        $push: { Matches: myMatchEntry },
+      });
+
+      await User.findByIdAndUpdate(targetUser._id, {
+        $push: { Matches: theirMatchEntry },
+      });
+
+      return res.status(201).json({
+        message: "It's a match!",
+        mutualMatch: true,
+        match: {
+          user_id: targetUserId,
+          timeFormatted,
+          timestamp: now.toISOString(),
+        },
       });
     }
 
-    const now = new Date();
-    const matchEntry = {
-      targetUserId,
-      timestamp: now,
-      otherUserLocation,
-    };
-
-    await User.findByIdAndUpdate(req.user._id, {
-      $push: { Matches: matchEntry },
-    });
-
     res.status(201).json({
-      message: "Match added",
-      match: {
-        targetUserId,
-        timestamp: now.toISOString(),
-        otherUserLocation,
-      },
+      message: "Like sent",
+      mutualMatch: false,
     });
   } catch (error) {
     console.error("addMatch error:", error);
@@ -163,4 +314,4 @@ async function addMatch(req, res) {
   }
 }
 
-module.exports = { getMe, updateMe, getOthers, addMatch };
+module.exports = { getMe, updateMe, updateLocation, getOthers, addMatch };

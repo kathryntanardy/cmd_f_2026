@@ -36,12 +36,14 @@ const Dashboard: React.FC = () => {
     const [users, setUsers] = useState<ApiUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [locationRequired, setLocationRequired] = useState(false);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [dragX, setDragX] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
     const [isAnimatingOut, setIsAnimatingOut] = useState(false);
     const [flyDirection, setFlyDirection] = useState<"left" | "right" | "">("");
     const [showLikeEffect, setShowLikeEffect] = useState(false);
+    const [mutualMatch, setMutualMatch] = useState<{ username: string } | null>(null);
 
     const startXRef = useRef(0);
 
@@ -69,6 +71,7 @@ const Dashboard: React.FC = () => {
             })
             .then((data) => {
                 if (data?.users) setUsers(data.users);
+                setLocationRequired(data?.locationRequired === true);
             })
             .catch((err) => setError(err.message || "Failed to load users"))
             .finally(() => setLoading(false));
@@ -125,7 +128,14 @@ const Dashboard: React.FC = () => {
                         Authorization: `Bearer ${getToken()}`,
                     },
                     body: JSON.stringify({ targetUserId: targetUser.user_id }),
-                }).catch(() => {});
+                })
+                    .then((res) => res.json())
+                    .then((data) => {
+                        if (data?.mutualMatch === true) {
+                            setMutualMatch({ username: targetUser.username });
+                        }
+                    })
+                    .catch(() => {});
             }
             setShowLikeEffect(true);
 
@@ -201,7 +211,11 @@ const Dashboard: React.FC = () => {
             <div className="dashboard">
                 <div className="dashboard__header">
                     <h1 className="dashboard__title">Discover</h1>
-                    <p className="dashboard__subtitle">No one to discover yet. Check back later!</p>
+                    <p className="dashboard__subtitle">
+                        {locationRequired
+                            ? "Enable location access to see nearby users within your radius."
+                            : "No one to discover yet. Check back later!"}
+                    </p>
                 </div>
                 <NavBar />
             </div>
@@ -262,6 +276,30 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {mutualMatch && (
+                <div
+                    className="dashboard__match-overlay"
+                    role="alert"
+                    aria-live="polite"
+                >
+                    <div className="dashboard__match-content">
+                        <span className="dashboard__match-heart">♥</span>
+                        <h2 className="dashboard__match-title">It&apos;s a match!</h2>
+                        <p className="dashboard__match-name">You and {mutualMatch.username} liked each other.</p>
+                        <button
+                            type="button"
+                            className="dashboard__match-dismiss"
+                            onClick={() => {
+                                setMutualMatch(null);
+                                navigate("/match");
+                            }}
+                        >
+                            View match
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <NavBar />
         </div>

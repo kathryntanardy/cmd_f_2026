@@ -2,14 +2,16 @@ import { Routes, Route, Outlet, Navigate } from "react-router-dom";
 import "./App.css";
 
 import NavBar from "./components/NavBar/NavBar";
+import { useLocationTracking } from "./hooks/useLocationTracking";
 
-import LoginPage from "./pages/Login/Login"; 
+import LoginPage from "./pages/Login/Login";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import UserProfilePage from "./pages/Profile/UserProfilePage";
-import MatchMap from './pages/MatchMap/MatchMap'
+import MatchMap from "./pages/MatchMap/MatchMap";
 import EditProfilePage from "./pages/EditProfile/EditProfilePage";
 
 function AppLayout() {
+  useLocationTracking();
   return (
     <>
       <Outlet />

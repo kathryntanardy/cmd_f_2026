@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { setAuth, getToken } from "../../utils/auth";
+import { setAuth, getToken, API_BASE } from "../../utils/auth";
 import "./Login.css";
 
 type LoginResponse = {
@@ -54,13 +54,64 @@ const LoginPage: React.FC = () => {
     }
   }, [navigate]);
 
+  const updateUserLocation = async (token: string) => {
+    if (!navigator.geolocation) {
+      console.warn("Geolocation is not supported by this browser");
+      return;
+    }
+
+    return new Promise<void>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+
+          console.log("📍 Browser detected location:");
+          console.log("Latitude:", latitude);
+          console.log("Longitude:", longitude);
+
+          try {
+            const res = await fetch(`${API_BASE}/api/users/me/location`, {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                latitude,
+                longitude,
+              }),
+            });
+
+            const data = await res.json();
+
+            console.log("📡 Backend location response:", data);
+          } catch (err) {
+            console.error("Failed to update location:", err);
+          }
+
+          resolve();
+        },
+        (geoError) => {
+          console.error("Geolocation error:", geoError);
+          resolve();
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:3000/api/auth/login", {
+      const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -72,7 +123,7 @@ const LoginPage: React.FC = () => {
       });
 
       const rawText = await response.text();
-      console.log("Status:", response.status);
+      console.log("Login status:", response.status);
       console.log("Raw server response:", rawText);
 
       let data: LoginResponse = {};
@@ -102,6 +153,10 @@ const LoginPage: React.FC = () => {
           username: data.user.username,
           email: data.user.email,
         });
+
+        console.log("🔐 Auth token saved");
+
+        await updateUserLocation(data.token);
       }
 
       navigate("/dashboard", { replace: true });

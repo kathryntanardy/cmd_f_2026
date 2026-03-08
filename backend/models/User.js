@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { DEFAULT_MAX_DISTANCE_METERS } = require("../constants");
 
 const userSchema = new mongoose.Schema(
   {
@@ -44,12 +45,16 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
+    Likes: {
+      type: [Number],
+      default: [],
+    },
     Matches: {
       type: [
         {
-          targetUserId: { type: Number, required: true },
+          user_id: { type: Number, required: true },
+          timeFormatted: { type: String, required: true },
           timestamp: { type: Date, default: Date.now },
-          otherUserLocation: { type: [Number], required: true },
         },
       ],
       default: [],
@@ -87,7 +92,7 @@ const userSchema = new mongoose.Schema(
       },
       maxDistanceMeters: {
         type: Number,
-        default: 50,
+        default: DEFAULT_MAX_DISTANCE_METERS,
       },
     },
 
