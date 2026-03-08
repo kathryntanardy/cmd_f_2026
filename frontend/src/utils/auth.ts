@@ -1,8 +1,11 @@
 const AUTH_TOKEN_KEY = "auth_token";
 const AUTH_USER_KEY = "auth_user";
 
+const raw = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 export const API_BASE =
-  import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+  raw.startsWith("http://") || raw.startsWith("https://")
+    ? raw
+    : `https://${raw}`;
 
 export type StoredUser = {
   user_id: number;
