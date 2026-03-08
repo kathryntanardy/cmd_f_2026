@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart } from "lucide-react";
 
@@ -18,7 +18,14 @@ type ApiUser = {
     distanceMeters?: number | null;
 };
 
-const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80";
+type OthersResponse = {
+    users?: ApiUser[];
+    locationRequired?: boolean;
+    message?: string;
+};
+
+const DEFAULT_IMAGE =
+    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80";
 
 function formatDistance(meters: number | null | undefined): string {
     if (meters == null) return "—";
@@ -30,6 +37,7 @@ function formatDistance(meters: number | null | undefined): string {
 const SWIPE_THRESHOLD = 110;
 const LIKE_EFFECT_DELAY = 260;
 const SWIPE_OUT_DURATION = 320;
+const REFRESH_INTERVAL_MS = 5000;
 
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
@@ -46,45 +54,175 @@ const Dashboard: React.FC = () => {
     const [mutualMatch, setMutualMatch] = useState<{ username: string } | null>(null);
 
     const startXRef = useRef(0);
+    const intervalRef = useRef<number | null>(null);
 
-    useEffect(() => {
+    const handleUnauthorized = useCallback(() => {
+        clearAuth();
+        localStorage.removeItem("user");
+        navigate("/", { replace: true });
+    }, [navigate]);
+
+    const getCurrentCoordinates = useCallback((): Promise<[number, number]> => {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error("Geolocation is not supported in this browser."));
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    resolve([position.coords.longitude, position.coords.latitude]);
+                },
+                (geoError) => {
+                    reject(new Error(geoError.message || "Unable to get your location."));
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0,
+                }
+            );
+        });
+    }, []);
+
+    const updateMyLocation = useCallback(async () => {
         const token = getToken();
+
         if (!token) {
-            clearAuth();
-            localStorage.removeItem("user");
-            navigate("/", { replace: true });
-            return;
+            handleUnauthorized();
+            throw new Error("Missing auth token");
         }
 
-        fetch(`${API_BASE}/api/users/others`, {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then((res) => {
-                if (res.status === 401) {
-                    clearAuth();
-                    localStorage.removeItem("user");
-                    navigate("/", { replace: true });
-                    return null;
+        const coordinates = await getCurrentCoordinates();
+
+        const res = await fetch(`${API_BASE}/api/users/me/location`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ coordinates }),
+        });
+
+        if (res.status === 401) {
+            handleUnauthorized();
+            throw new Error("Unauthorized");
+        }
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            throw new Error(data?.message || "Failed to update location");
+        }
+
+        return data;
+    }, [getCurrentCoordinates, handleUnauthorized]);
+
+    const fetchNearbyUsers = useCallback(async () => {
+        const token = getToken();
+
+        if (!token) {
+            handleUnauthorized();
+            throw new Error("Missing auth token");
+        }
+
+        const res = await fetch(`${API_BASE}/api/users/others`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        if (res.status === 401) {
+            handleUnauthorized();
+            throw new Error("Unauthorized");
+        }
+
+        const data: OthersResponse = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            throw new Error(data?.message || "Failed to load users");
+        }
+
+        const nextUsers = Array.isArray(data?.users) ? data.users : [];
+        setUsers(nextUsers);
+        setLocationRequired(data?.locationRequired === true);
+
+        setCurrentIndex((prev) => {
+            if (nextUsers.length === 0) return 0;
+            return prev >= nextUsers.length ? 0 : prev;
+        });
+    }, [handleUnauthorized]);
+
+    const refreshNearbyUsers = useCallback(
+        async (initialLoad = false) => {
+            try {
+                if (initialLoad) {
+                    setLoading(true);
                 }
-                if (!res.ok) throw new Error("Failed to load users");
-                return res.json();
-            })
-            .then((data) => {
-                if (data?.users) setUsers(data.users);
-                setLocationRequired(data?.locationRequired === true);
-            })
-            .catch((err) => setError(err.message || "Failed to load users"))
-            .finally(() => setLoading(false));
-    }, [navigate]);
+
+                setError("");
+                await updateMyLocation();
+                await fetchNearbyUsers();
+            } catch (err) {
+                const message =
+                    err instanceof Error ? err.message : "Failed to refresh nearby users";
+                if (message !== "Unauthorized") {
+                    setError(message);
+                }
+            } finally {
+                if (initialLoad) {
+                    setLoading(false);
+                }
+            }
+        },
+        [fetchNearbyUsers, updateMyLocation]
+    );
+
+    useEffect(() => {
+        refreshNearbyUsers(true);
+    }, [refreshNearbyUsers]);
+
+    useEffect(() => {
+        intervalRef.current = window.setInterval(() => {
+            refreshNearbyUsers(false);
+        }, REFRESH_INTERVAL_MS);
+
+        return () => {
+            if (intervalRef.current !== null) {
+                window.clearInterval(intervalRef.current);
+            }
+        };
+    }, [refreshNearbyUsers]);
+
+    useEffect(() => {
+        const handleFocus = () => {
+            refreshNearbyUsers(false);
+        };
+
+        window.addEventListener("focus", handleFocus);
+        return () => window.removeEventListener("focus", handleFocus);
+    }, [refreshNearbyUsers]);
 
     const currentUser = users[currentIndex];
 
-    const nextProfile = () => {
-        setCurrentIndex((prev) => (prev + 1) % users.length);
-    };
+    const removeCurrentUserFromDeck = useCallback(() => {
+        setUsers((prevUsers) => {
+            if (prevUsers.length === 0) return prevUsers;
+
+            const updatedUsers = prevUsers.filter((_, index) => index !== currentIndex);
+
+            setCurrentIndex((prevIndex) => {
+                if (updatedUsers.length === 0) return 0;
+                if (prevIndex >= updatedUsers.length) return 0;
+                return prevIndex;
+            });
+
+            return updatedUsers;
+        });
+    }, [currentIndex]);
 
     const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-        if (isAnimatingOut || showLikeEffect) return;
+        if (isAnimatingOut || showLikeEffect || users.length === 0) return;
         startXRef.current = e.clientX;
         setIsDragging(true);
     };
@@ -107,36 +245,47 @@ const Dashboard: React.FC = () => {
         setIsAnimatingOut(true);
 
         setTimeout(() => {
-            nextProfile();
+            removeCurrentUserFromDeck();
             setDragX(0);
             setFlyDirection("");
             setIsAnimatingOut(false);
             setShowLikeEffect(false);
+            refreshNearbyUsers(false);
         }, SWIPE_OUT_DURATION);
     };
 
     const completeSwipe = (direction: "left" | "right") => {
         setIsDragging(false);
 
+        const targetUser = users[currentIndex];
+        if (!targetUser?.user_id) {
+            finishSwipeOut(direction);
+            return;
+        }
+
         if (direction === "right") {
-            const targetUser = users[currentIndex];
-            if (targetUser?.user_id != null) {
-                fetch(`${API_BASE}/api/users/me/matches`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${getToken()}`,
-                    },
-                    body: JSON.stringify({ targetUserId: targetUser.user_id }),
+            fetch(`${API_BASE}/api/users/me/matches`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${getToken()}`,
+                },
+                body: JSON.stringify({ targetUserId: targetUser.user_id }),
+            })
+                .then(async (res) => {
+                    if (res.status === 401) {
+                        handleUnauthorized();
+                        return null;
+                    }
+                    return res.json().catch(() => null);
                 })
-                    .then((res) => res.json())
-                    .then((data) => {
-                        if (data?.mutualMatch === true) {
-                            setMutualMatch({ username: targetUser.username });
-                        }
-                    })
-                    .catch(() => {});
-            }
+                .then((data) => {
+                    if (data?.mutualMatch === true) {
+                        setMutualMatch({ username: targetUser.username });
+                    }
+                })
+                .catch(() => {});
+
             setShowLikeEffect(true);
             setTimeout(() => {
                 finishSwipeOut("right");
@@ -144,17 +293,15 @@ const Dashboard: React.FC = () => {
             return;
         }
 
-        const targetUser = users[currentIndex];
-        if (targetUser?.user_id != null) {
-            fetch(`${API_BASE}/api/users/me/pings`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${getToken()}`,
-                },
-                body: JSON.stringify({ targetUserId: targetUser.user_id }),
-            }).catch(() => {});
-        }
+        fetch(`${API_BASE}/api/users/me/pings`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${getToken()}`,
+            },
+            body: JSON.stringify({ targetUserId: targetUser.user_id }),
+        }).catch(() => {});
+
         finishSwipeOut("left");
     };
 
@@ -180,9 +327,7 @@ const Dashboard: React.FC = () => {
     };
 
     const rotation = dragX * 0.05;
-    const heartOpacity = showLikeEffect
-        ? 1
-        : Math.max(0, Math.min(dragX / 120, 1));
+    const heartOpacity = showLikeEffect ? 1 : Math.max(0, Math.min(dragX / 120, 1));
 
     const style: React.CSSProperties = isAnimatingOut
         ? {}
@@ -208,7 +353,9 @@ const Dashboard: React.FC = () => {
             <div className="dashboard">
                 <div className="dashboard__header">
                     <h1 className="dashboard__title">Discover</h1>
-                    <p className="dashboard__subtitle" style={{ color: "red" }}>{error}</p>
+                    <p className="dashboard__subtitle" style={{ color: "red" }}>
+                        {error}
+                    </p>
                 </div>
                 <NavBar />
             </div>
@@ -295,7 +442,9 @@ const Dashboard: React.FC = () => {
                     <div className="dashboard__match-content">
                         <span className="dashboard__match-heart">♥</span>
                         <h2 className="dashboard__match-title">It&apos;s a match!</h2>
-                        <p className="dashboard__match-name">You and {mutualMatch.username} liked each other.</p>
+                        <p className="dashboard__match-name">
+                            You and {mutualMatch.username} liked each other.
+                        </p>
                         <button
                             type="button"
                             className="dashboard__match-dismiss"
