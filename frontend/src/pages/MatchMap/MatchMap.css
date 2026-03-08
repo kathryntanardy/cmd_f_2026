@@ -1,0 +1,127 @@
+.matchmap-page {
+    min-height: 100vh;
+    background: linear-gradient(180deg, #fff7fb 0%, #fff 45%, #fff5f7 100%);
+    padding: 24px 20px 140px;
+    box-sizing: border-box;
+  }
+  
+  .matchmap-shell {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  
+  .matchmap-header {
+    margin-bottom: 20px;
+  }
+  
+  .matchmap-eyebrow {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #d14d72;
+  }
+
+  .map-card {
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(218, 200, 210, 0.7);
+    border-radius: 28px;
+    padding: 18px;
+    box-shadow: 0 20px 60px rgba(50, 20, 40, 0.08);
+    backdrop-filter: blur(8px);
+    margin-bottom: 24px;
+  }
+  
+  .map-card-top {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  
+  .map-card-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: #241a2d;
+  }
+  
+  .map-card-subtitle {
+    margin: 4px 0 0;
+    font-size: 14px;
+    color: #756a7f;
+  }
+  
+  .map-badge {
+    flex-shrink: 0;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: #fce7ef;
+    color: #b83268;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  
+  .map-frame {
+    height: 60vh;
+    min-height: 420px;
+    max-height: 600px;
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid rgba(225, 214, 220, 0.9);
+    background: #f6f2f5;
+  }
+  
+  .marker-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .timer-bubble {
+    margin-bottom: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+  
+  .timer-bubble.urgent {
+    background: rgba(220, 38, 38, 0.9);
+  }
+  
+  .marker-icon {
+    width: 60px;
+    display: block;
+  }
+  
+  @media (max-width: 768px) {
+    .matchmap-page {
+      padding: 20px 14px 130px;
+    }
+  
+    .matchmap-title {
+      font-size: 28px;
+    }
+  
+    .map-card {
+      padding: 14px;
+      border-radius: 22px;
+    }
+  
+    .map-card-top {
+      flex-direction: column;
+    }
+  
+    .map-frame {
+      height: 50vh;
+      min-height: 360px;
+      max-height: 500px;
+      border-radius: 18px;
+    }
+  }
