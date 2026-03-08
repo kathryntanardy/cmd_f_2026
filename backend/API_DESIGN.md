@@ -45,9 +45,14 @@ So: "I (current user) matched with user X at time T; they were at location L."
 | `GET` | `/api/users/me` | Get **current user** profile for My Profile + Edit Profile (exclude `passwordHash`). |
 | `PATCH` | `/api/users/me` | Update **current user** (Edit Profile save). Body: fields to update (e.g. `username`, `age`, `bio`, `profilePhoto`, `location`, `preferences`, `hideProfile`). |
 | `GET` | `/api/users/others` | Get **other users** (excluding current user) for Dashboard/Discover. Returns safe profile fields and distance when current user has location. |
+| `GET` | `/api/users/:userId` | Get **user by user_id** for MatchMap popup. Returns username, age, bio, profilePhoto, etc. (excludes passwordHash, email, Matches). |
+| `GET` | `/api/users/me/matches` | Get **current user's** matches for MatchMap. Returns `targetUserId`, `timestamp`, `otherUserLocation` for each match. |
 | `POST` | `/api/users/me/matches` | Add a **match** when user swipes right. Stores target user id, timestamp (now), and that user's location. |
+| `DELETE` | `/api/users/me/matches` | Remove a **match** when timer expires. Body: `{ targetUserId, timestamp }` to identify the entry. |
+| `POST` | `/api/users/me/pings` | Add a **ping** when user swipes left (passed). Stores `targetUserId` and timestamp. |
+| `DELETE` | `/api/users/me/pings/expired` | Remove **ping** entries older than 30 minutes (optional; backend runs automatic cleanup every 30 min). |
 
-### Pings (all require auth)
+---
 ## Request/response shapes
 
 ### `POST /api/auth/login`
@@ -143,6 +148,51 @@ So: "I (current user) matched with user X at time T; they were at location L."
 
 ---
 
+### `GET /api/users/:userId`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Purpose:** Returns user profile by `user_id` (number). Used in MatchMap popup to show matched user's info.
+
+**URL params:** `userId` – the target user's `user_id` (e.g. `1235`).
+
+**Response (200):** User object without `passwordHash`, `email`, `Matches`, `matchLock`:
+
+- `user_id`, `username`, `age`, `bio`, `profilePhoto`, `location`, `preferences`, `hideProfile`.
+
+**Errors:** 400 if invalid userId, 404 if user not found, 401 if not logged in.
+
+---
+
+### `GET /api/users/me/matches`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Purpose:** Returns the current user's matches for MatchMap. Each match includes `targetUserId`, `timestamp`, and `otherUserLocation` (the other user's `[longitude, latitude]` at the time of the swipe).
+
+**Response (200):**
+
+```json
+{
+  "matches": [
+    {
+      "targetUserId": 1235,
+      "timestamp": "2025-03-07T14:30:00.000Z",
+      "otherUserLocation": [-123.12, 49.28]
+    },
+    {
+      "targetUserId": 1240,
+      "timestamp": "2025-03-07T16:45:00.000Z",
+      "otherUserLocation": [-123.08, 49.25]
+    }
+  ]
+}
+```
+
+**Errors:** 401 if not logged in.
+
+---
+
 ### `POST /api/users/me/matches`
 
 **Headers:** `Authorization: Bearer <token>`
@@ -175,6 +225,81 @@ So: "I (current user) matched with user X at time T; they were at location L."
 }
 ```
 
+**Errors:** 400 if `targetUserId` missing or invalid, 404 if target user not found or has no location, 401 if not logged in.
+
+---
+
+### `DELETE /api/users/me/matches`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Purpose:** Removes a match when the timer expires. Used by MatchMap to clear expired entries from the backend.
+
+**Request body:**
+
+```json
+{ "targetUserId": 1235, "timestamp": "2025-03-07T14:30:00.000Z" }
+```
+
+- `targetUserId` (required): The matched user's `user_id`.
+- `timestamp` (optional): The match's timestamp to identify the exact entry when multiple matches exist for the same user.
+
+**Backend logic:** Uses `$pull` to remove the matching entry from `User.Matches`.
+
+**Response (200):**
+
+```json
+{ "message": "Match removed" }
+```
+
+**Errors:** 400 if `targetUserId` missing or invalid, 401 if not logged in.
+
+---
+
+### `POST /api/users/me/pings`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Purpose:** Records when the current user swipes left (passed) on another user. Adds `targetUserId` and timestamp to the Ping array.
+
+**Request body:**
+
+```json
+{ "targetUserId": 1235 }
+```
+
+**Response (201):**
+
+```json
+{
+  "message": "Ping added",
+  "ping": {
+    "targetUserId": 1235,
+    "timestamp": "2025-03-07T14:30:00.000Z"
+  }
+}
+```
+
+**Errors:** 400 if `targetUserId` missing or invalid, 401 if not logged in.
+
+---
+
+### `DELETE /api/users/me/pings/expired`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Purpose:** Removes all Ping entries older than 30 minutes. The backend also runs automatic cleanup every 30 minutes for all users.
+
+**Response (200):**
+
+```json
+{ "message": "Expired pings removed" }
+```
+
+**Errors:** 401 if not logged in.
+
+---
+
 ## Backend structure (suggested)
 
 ```
@@ -183,10 +308,10 @@ backend/
     auth.js          # Verify JWT, set req.user (e.g. { user_id, _id })
   routes/
     authRoutes.js    # POST /signup, POST /login
-    userRoutes.js    # GET /me, PATCH /me, GET /others, POST /me/matches
+    userRoutes.js    # GET /me, PATCH /me, GET /others, GET /me/matches, POST /me/matches, DELETE /me/matches, POST /me/pings, DELETE /me/pings/expired, GET /:userId
   controllers/
     authController.js  # signup, login
-    userController.js  # getMe, updateMe, getOthers, addMatch
+    userController.js  # getMe, updateMe, getUserById, getOthers, getMatches, addMatch, deleteMatch, addPing, deleteExpiredPings
   server.js            # app.use("/api/auth", authRoutes); app.use("/api/users", authMiddleware, userRoutes);
 ```
 
@@ -201,5 +326,7 @@ backend/
 2. **All API calls** for “me” or “my matches” → send `Authorization: Bearer <token>`.
 3. **Profile page** → `GET /api/users/me` → set state with that user → render (map `username` → name, `location` or separate city if you add it, etc.).
 4. **Edit Profile** → load same `GET /api/users/me`; on Save → `PATCH /api/users/me` with changed fields.
-5. **Dashboard / Discover** → `GET /api/users/others` to list other users for swipe cards. On swipe right (match) → `POST /api/users/me/matches` with `{ targetUserId }` to store the match (target user id, timestamp, other user's location).
-This gives you: login → one “current user” → use that user’s data for Profile and Edit Profile, and a Matches for swipe-right actions.
+5. **Dashboard / Discover** → `GET /api/users/others` to list users. On swipe right → `POST /api/users/me/matches`. On swipe left → `POST /api/users/me/pings` with `{ targetUserId }`. (Expired pings are cleaned automatically by the backend every 30 min.)
+6. **MatchMap** → `GET /api/users/me/matches` to retrieve matches; fetch user info via `GET /api/users/:userId` for popup; when timer expires, `DELETE /api/users/me/matches` with `{ targetUserId, timestamp }` to remove the entry.
+
+This gives you: login → one "current user" → use that user's data for Profile and Edit Profile, and Matches for swipe-right actions and MatchMap.

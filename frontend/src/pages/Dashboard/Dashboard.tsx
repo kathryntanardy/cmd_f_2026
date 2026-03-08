@@ -138,14 +138,23 @@ const Dashboard: React.FC = () => {
                     .catch(() => {});
             }
             setShowLikeEffect(true);
-
             setTimeout(() => {
                 finishSwipeOut("right");
             }, LIKE_EFFECT_DELAY);
-
             return;
         }
 
+        const targetUser = users[currentIndex];
+        if (targetUser?.user_id != null) {
+            fetch(`${API_BASE}/api/users/me/pings`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${getToken()}`,
+                },
+                body: JSON.stringify({ targetUserId: targetUser.user_id }),
+            }).catch(() => {});
+        }
         finishSwipeOut("left");
     };
 

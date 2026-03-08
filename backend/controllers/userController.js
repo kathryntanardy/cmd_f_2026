@@ -146,6 +146,28 @@ async function updateLocation(req, res) {
   }
 }
 
+async function getUserById(req, res) {
+  try {
+    const userId = parseInt(req.params.userId, 10);
+    if (Number.isNaN(userId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    const user = await User.findOne({ user_id: userId })
+      .select("-passwordHash -email -Matches -matchLock -createdAt -updatedAt")
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error("getUserById error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
 async function getOthers(req, res) {
   try {
     const currentUserId = req.user._id;
@@ -197,7 +219,6 @@ async function getOthers(req, res) {
             passwordHash: 0,
             email: 0,
             Matches: 0,
-            Likes: 0,
             matchLock: 0,
             createdAt: 0,
             updatedAt: 0,
@@ -206,7 +227,10 @@ async function getOthers(req, res) {
         },
       ]);
     } else {
-      users = [];
+      users = await User.find(excludeQuery)
+        .select("-passwordHash -email -Matches -matchLock -createdAt -updatedAt")
+        .lean();
+      users = users.map((u) => ({ ...u, distanceMeters: null }));
     }
 
     const payload = users.map((u) => ({
@@ -232,15 +256,27 @@ async function getOthers(req, res) {
   }
 }
 
-function formatMatchTime(date) {
-  return date.toLocaleString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+async function getMatches(req, res) {
+  try {
+    const user = await User.findById(req.user._id)
+      .select("Matches")
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const matches = (user.Matches || []).map((m) => ({
+      targetUserId: m.targetUserId,
+      timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp,
+      otherUserLocation: m.otherUserLocation,
+    }));
+
+    res.json({ matches });
+  } catch (error) {
+    console.error("getMatches error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
 }
 
 async function addMatch(req, res) {
@@ -250,63 +286,44 @@ async function addMatch(req, res) {
     if (targetUserId == null) {
       return res.status(400).json({ message: "targetUserId is required" });
     }
-
-    targetUserId =
-      typeof targetUserId === "string" ? parseInt(targetUserId, 10) : targetUserId;
-
+    targetUserId = typeof targetUserId === "string" ? parseInt(targetUserId, 10) : targetUserId;
     if (Number.isNaN(targetUserId) || typeof targetUserId !== "number") {
       return res.status(400).json({ message: "targetUserId must be a number" });
     }
 
-    const myUserId = req.user.user_id;
-
-    if (myUserId == null) {
-      return res.status(400).json({ message: "Current user has no user_id" });
-    }
-
     const targetUser = await User.findOne({ user_id: targetUserId })
-      .select("_id location Likes")
+      .select("location")
       .lean();
 
     if (!targetUser) {
       return res.status(404).json({ message: "Target user not found" });
     }
 
-    const targetLikes = targetUser.Likes || [];
-    const isMutual = targetLikes.includes(myUserId);
-
-    await User.findByIdAndUpdate(req.user._id, {
-      $addToSet: { Likes: targetUserId },
-    });
-
-    if (isMutual) {
-      const now = new Date();
-      const timeFormatted = formatMatchTime(now);
-      const myMatchEntry = { user_id: targetUserId, timeFormatted, timestamp: now };
-      const theirMatchEntry = { user_id: myUserId, timeFormatted, timestamp: now };
-
-      await User.findByIdAndUpdate(req.user._id, {
-        $push: { Matches: myMatchEntry },
-      });
-
-      await User.findByIdAndUpdate(targetUser._id, {
-        $push: { Matches: theirMatchEntry },
-      });
-
-      return res.status(201).json({
-        message: "It's a match!",
-        mutualMatch: true,
-        match: {
-          user_id: targetUserId,
-          timeFormatted,
-          timestamp: now.toISOString(),
-        },
+    const otherUserLocation = targetUser.location?.coordinates;
+    if (!otherUserLocation || otherUserLocation.length !== 2) {
+      return res.status(400).json({
+        message: "Target user has no location",
       });
     }
 
+    const now = new Date();
+    const matchEntry = {
+      targetUserId,
+      timestamp: now,
+      otherUserLocation,
+    };
+
+    await User.findByIdAndUpdate(req.user._id, {
+      $push: { Matches: matchEntry },
+    });
+
     res.status(201).json({
-      message: "Like sent",
-      mutualMatch: false,
+      message: "Match added",
+      match: {
+        targetUserId,
+        timestamp: now.toISOString(),
+        otherUserLocation,
+      },
     });
   } catch (error) {
     console.error("addMatch error:", error);
@@ -314,4 +331,108 @@ async function addMatch(req, res) {
   }
 }
 
-module.exports = { getMe, updateMe, updateLocation, getOthers, addMatch };
+async function deleteMatch(req, res) {
+  try {
+    const { targetUserId, timestamp } = req.body;
+
+    if (targetUserId == null) {
+      return res.status(400).json({ message: "targetUserId is required" });
+    }
+
+    const resolvedTargetUserId = typeof targetUserId === "string" ? parseInt(targetUserId, 10) : targetUserId;
+    if (Number.isNaN(resolvedTargetUserId) || typeof resolvedTargetUserId !== "number") {
+      return res.status(400).json({ message: "targetUserId must be a number" });
+    }
+
+    const pullCondition = { targetUserId: resolvedTargetUserId };
+    if (timestamp) {
+      const ts = new Date(timestamp);
+      if (!Number.isNaN(ts.getTime())) {
+        pullCondition.timestamp = ts;
+      }
+    }
+
+    const result = await User.findByIdAndUpdate(
+      req.user._id,
+      { $pull: { Matches: pullCondition } },
+      { new: true }
+    );
+
+    if (!result) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ message: "Match removed" });
+  } catch (error) {
+    console.error("deleteMatch error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+async function addPing(req, res) {
+  try {
+    let { targetUserId } = req.body;
+
+    if (targetUserId == null) {
+      return res.status(400).json({ message: "targetUserId is required" });
+    }
+    targetUserId = typeof targetUserId === "string" ? parseInt(targetUserId, 10) : targetUserId;
+    if (Number.isNaN(targetUserId) || typeof targetUserId !== "number") {
+      return res.status(400).json({ message: "targetUserId must be a number" });
+    }
+
+    const now = new Date();
+    const pingEntry = {
+      targetUserId,
+      timestamp: now,
+    };
+
+    await User.findByIdAndUpdate(req.user._id, {
+      $push: { Ping: pingEntry },
+    });
+
+    res.status(201).json({
+      message: "Ping added",
+      ping: {
+        targetUserId,
+        timestamp: now.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("addPing error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+async function deleteExpiredPings(req, res) {
+  try {
+    const cutoff = new Date(Date.now() - 30 * 60 * 1000);
+
+    const result = await User.findByIdAndUpdate(
+      req.user._id,
+      { $pull: { Ping: { timestamp: { $lt: cutoff } } } },
+      { new: true }
+    );
+
+    if (!result) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ message: "Expired pings removed" });
+  } catch (error) {
+    console.error("deleteExpiredPings error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+module.exports = {
+  getMe,
+  updateMe,
+  getUserById,
+  getOthers,
+  getMatches,
+  addMatch,
+  deleteMatch,
+  addPing,
+  deleteExpiredPings,
+};

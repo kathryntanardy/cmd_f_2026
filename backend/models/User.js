@@ -45,18 +45,8 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
-    Likes: {
-      type: [Number],
-      default: [],
-    },
-    Matches: {
-      type: [
-        {
-          user_id: { type: Number, required: true },
-          timeFormatted: { type: String, required: true },
-          timestamp: { type: Date, default: Date.now },
-        },
-      ],
+    Ping: {
+      type: [[mongoose.Schema.Types.Mixed]],
       default: [],
     },
 
