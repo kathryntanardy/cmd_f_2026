@@ -128,6 +128,12 @@ const MatchMap: React.FC = () => {
         fetchMatches();
     }, [fetchMatches, location.pathname]);
 
+    // Poll for new matches so the other user sees mutual matches in real time
+    useEffect(() => {
+        const pollInterval = setInterval(fetchMatches, 5_000);
+        return () => clearInterval(pollInterval);
+    }, [fetchMatches]);
+
     useEffect(() => {
         const token = getToken();
         const interval = setInterval(() => {
